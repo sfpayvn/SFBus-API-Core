@@ -1,4 +1,4 @@
-import { Exclude, Expose, Type } from 'class-transformer';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
 import { IsNotEmpty, IsInt, IsOptional, IsString } from 'class-validator';
 import { Types } from 'mongoose';
 import { BusStationDto } from '../../bus-station/dto/bus-station.dto';
@@ -15,6 +15,10 @@ export class BusProvinceDto {
 
   @Expose()
   name: string;
+
+  @Expose()
+  @Transform(({ value }) => value !== false)
+  isActive?: boolean;
 
   @Exclude()
   createdAt?: Date;

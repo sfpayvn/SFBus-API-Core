@@ -28,7 +28,7 @@ export class RequestUpdatePaymentGoodsStatusDto {
 export class RequestUpdateGoodsScheduleAssignmentDto {
   @IsNotEmpty()
   @Type(() => Types.ObjectId)
-  goodIds: Types.ObjectId[];
+  goodsIds: Types.ObjectId[];
 
   @Type(() => Types.ObjectId)
   busScheduleId: Types.ObjectId | null;
@@ -36,12 +36,7 @@ export class RequestUpdateGoodsScheduleAssignmentDto {
 
 export class RequestUpdateGoodsScheduleBoardingDto {
   @IsNotEmpty()
-  @IsIn([
-    GOODS_STATUS.PENDING,
-    GOODS_STATUS.ON_BOARD,
-    GOODS_STATUS.DROPPED_OFF,
-    GOODS_STATUS.COMPLETED,
-  ])
+  @IsIn([GOODS_STATUS.PENDING, GOODS_STATUS.ON_BOARD, GOODS_STATUS.ARRIVED_FINAL_STATION, GOODS_STATUS.COMPLETED])
   status: string;
 
   @IsNotEmpty()

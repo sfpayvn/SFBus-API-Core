@@ -39,7 +39,9 @@ export class BusStationService {
     if (!updatedBusStation) {
       throw new NotFoundException('Bus province not found');
     }
-    return plainToInstance(BusStationDto, updatedBusStation);
+    let result = plainToInstance(BusStationDto, updatedBusStation);
+    result = (await this.mapImageUrl([result]))[0];
+    return result;
   }
 
   async updates(updateBusStationDtos: UpdateBusStationDto[], tenantIds: Types.ObjectId[]): Promise<BusStationDto[]> {
@@ -78,7 +80,17 @@ export class BusStationService {
 
   async findAllAvailable(tenantIds: Types.ObjectId[]): Promise<BusStationDto[]> {
     const busStations = await this.busStationModel
-      .find({ tenantId: { $in: tenantIds }, provinceId: { $ne: null } })
+      .find({ tenantId: { $in: tenantIds }, provinceId: { $ne: null }, isActive: true })
+      .lean()
+      .exec();
+    let result = busStations.map((busStation) => plainToInstance(BusStationDto, busStation));
+    result = await this.mapImageUrl(result);
+    return result;
+  }
+
+  async findOffices(tenantIds: Types.ObjectId[]): Promise<BusStationDto[]> {
+    const busStations = await this.busStationModel
+      .find({ tenantId: { $in: tenantIds }, provinceId: { $ne: null }, isActive: true, isOffice: true })
       .lean()
       .exec();
     let result = busStations.map((busStation) => plainToInstance(BusStationDto, busStation));

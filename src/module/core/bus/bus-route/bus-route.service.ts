@@ -57,6 +57,16 @@ export class BusRouteService {
     return busRoute;
   }
 
+  async findByStationId(stationId: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<BusRouteDto[]> {
+    const busRoutesModel = await this.busRouteModel
+      .find({ 'breakPoints.busStationId': stationId, tenantId: { $in: tenantIds } })
+      .populate('breakPoints.busStation')
+      .lean()
+      .exec();
+    const result = plainToInstance(BusRouteDto, busRoutesModel);
+    return result;
+  }
+
   async search(
     pageIdx: number,
     pageSize: number,

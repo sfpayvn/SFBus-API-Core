@@ -28,4 +28,8 @@ export class CreateBusStationDto {
   @IsOptional()
   @Type(() => Boolean)
   isOffice?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  isActive?: boolean;
 }

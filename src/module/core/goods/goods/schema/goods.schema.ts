@@ -3,6 +3,7 @@ import { Type } from '@nestjs/common';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { Types } from 'mongoose';
+import { DeliveryType, FulfillmentMode } from '../../types/goods.types';
 
 @Schema({ collection: 'goods', timestamps: true })
 export class GoodsDocument extends Document {
@@ -25,16 +26,10 @@ export class GoodsDocument extends Document {
   customerPhoneNumber: string;
 
   @Prop({ required: true })
-  customerAddress: string;
-
-  @Prop({ required: true })
   senderName: string;
 
-  @Prop({ required: true })
-  senderPhoneNumber: string;
-
-  @Prop({ required: true })
-  senderAddress: string;
+  @Prop({ type: String, default: null })
+  senderPhoneNumber: string | null;
 
   @Prop({ required: true, default: 1 })
   goodsPriority: number;
@@ -81,7 +76,9 @@ export class GoodsDocument extends Document {
       GOODS_STATUS.NEW,
       GOODS_STATUS.PENDING,
       GOODS_STATUS.ON_BOARD,
-      GOODS_STATUS.DROPPED_OFF,
+      GOODS_STATUS.WAITING_CONTINUE_DELIVERY,
+      GOODS_STATUS.ARRIVED_FINAL_STATION,
+      GOODS_STATUS.OUT_FOR_DELIVERY,
       GOODS_STATUS.COMPLETED,
       GOODS_STATUS.CANCELLED,
     ],
@@ -111,6 +108,47 @@ export class GoodsDocument extends Document {
 
   @Prop({ type: [Types.ObjectId], default: [] })
   imageIds: Types.ObjectId[];
+
+  // Station relationship fields
+  @Prop({ type: Types.ObjectId, default: null })
+  originStationId: Types.ObjectId | null; // station gửi (office gửi)
+
+  @Prop({ type: Types.ObjectId, default: null })
+  destinationStationId: Types.ObjectId | null; // station nhận (office nhận / hub cuối)
+
+  @Prop({ type: Types.ObjectId, default: null })
+  currentStationId: Types.ObjectId | null; // station hiện tại đang giữ hàng (null khi ON_BOARD)
+
+  @Prop({ type: Types.ObjectId, default: null })
+  currentScheduleId: Types.ObjectId | null; // schedule hiện tại (alias cho busScheduleId)
+
+  // Delivery type & address
+  @Prop({
+    type: String,
+    enum: ['STATION', 'ADDRESS'],
+    default: 'STATION',
+  })
+  deliveryType: DeliveryType; // STATION | ADDRESS
+
+  @Prop({
+    type: String,
+    enum: ['ROADSIDE', 'STATION'],
+    default: 'STATION',
+  })
+  pickupFulfillmentMode: FulfillmentMode; // ROADSIDE | STATION
+
+  @Prop({
+    type: String,
+    enum: ['ROADSIDE', 'STATION'],
+    default: 'STATION',
+  })
+  deliveryFulfillmentMode: FulfillmentMode; // ROADSIDE | STATION
+
+  @Prop({ type: String, default: null })
+  pickupAddress: string | null; // nếu nhận dọc đường
+
+  @Prop({ type: String, default: null })
+  deliveryAddress: string | null; // nếu giao tận nhà
 }
 
 export const GoodsSchema = SchemaFactory.createForClass(GoodsDocument);

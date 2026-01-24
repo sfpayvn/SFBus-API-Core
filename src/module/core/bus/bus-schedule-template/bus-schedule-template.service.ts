@@ -44,6 +44,7 @@ export class BusScheduleTemplateService {
       .findOneAndUpdate({ _id: updateBusScheduleTemplateDto._id, tenantId }, updateBusScheduleTemplateDto, {
         new: true,
       })
+      .lean()
       .exec();
     if (!updatedBusService) {
       throw new NotFoundException(`Bus service with ID "${updateBusScheduleTemplateDto._id}" not found.`);

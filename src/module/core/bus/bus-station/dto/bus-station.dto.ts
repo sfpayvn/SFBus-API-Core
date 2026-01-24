@@ -33,6 +33,10 @@ export class BusStationDto {
   @Transform(({ value }) => value || false)
   isOffice?: boolean;
 
+  @Expose()
+  @Transform(({ value }) => value !== false)
+  isActive?: boolean;
+
   @Exclude()
   createdAt?: Date;
 

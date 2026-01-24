@@ -2,7 +2,7 @@ import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { GoodsDocument } from './schema/goods.schema';
-import { CreateGoodsDto } from './dto/create-goods.dto';
+import { CreateGoodsDto, CreateGoodsEvent } from './dto/create-goods.dto';
 import {
   RequestUpdateGoodsScheduleAssignmentDto,
   RequestUpdateGoodsScheduleBoardingDto,
@@ -10,7 +10,7 @@ import {
   UpdateGoodsDto,
 } from './dto/update-goods.dto';
 import { customAlphabet } from 'nanoid';
-import { GoodsDto, GoodsSortFilter, SearchGoodsPagingRes } from './dto/goods.dto';
+import { GoodsDto, GoodsEvent, GoodsSortFilter, SearchGoodsPagingRes } from './dto/goods.dto';
 import { plainToInstance } from 'class-transformer';
 import { GoodsCategoryService } from '../good-category/goods-category-service';
 import { BusScheduleDocument } from '../../bus/bus-schedule/schema/bus-schedule.schema';
@@ -24,6 +24,7 @@ import { PaymentService } from '../../payment/payment-service';
 import { GOODS_STATUS } from '@/common/constants/status.constants';
 import { getFirstValue, processFilterValue, toObjectId } from '@/utils/utils';
 import { GoodsCategoryDto } from '../good-category/dto/goods-category.dto';
+import { GOODS_EVENT_TYPES } from '../types/goods.types';
 
 @Injectable()
 export class GoodsService {
@@ -90,6 +91,15 @@ export class GoodsService {
     if (totalPrice <= 0) {
       createGoodsDto.paymentStatus = 'paid';
     }
+
+    const goodsEvent: CreateGoodsEvent = {
+      type: GOODS_EVENT_TYPES.CREATED,
+      stationId: createGoodsDto.currentStationId,
+      scheduleId: createGoodsDto.busScheduleId,
+      createdAt: new Date(),
+    };
+
+    createGoodsDto.events = [goodsEvent];
 
     const goods = await this.goodsModel.create({ ...createGoodsDto, tenantId, status: 'new' });
 
@@ -429,7 +439,7 @@ export class GoodsService {
   ): Promise<GoodsDto[]> {
     const rootTenantIdObjectId = toObjectId(this.rootTenantId);
     // collect all ids across dtos
-    const allIds = requestUpdateGoodsScheduleAssignmentDto.flatMap((d) => d.goodIds || []);
+    const allIds = requestUpdateGoodsScheduleAssignmentDto.flatMap((d) => d.goodsIds || []);
     if (!allIds || allIds.length === 0) {
       return [];
     }
@@ -445,7 +455,7 @@ export class GoodsService {
 
     // For each dto, perform updateMany for its ids
     for (const dto of requestUpdateGoodsScheduleAssignmentDto) {
-      const ids = dto.goodIds || [];
+      const ids = dto.goodsIds || [];
       const busScheduleId = dto.busScheduleId;
       if (!ids || ids.length === 0) continue;
       if (!busScheduleId) {
@@ -488,9 +498,9 @@ export class GoodsService {
     for (const u of updatedDocs) updatedById.set(u._id.toString(), u);
 
     const results: GoodsDto[] = [];
-    // Preserve order: iterate input dtos and their goodIds
+    // Preserve order: iterate input dtos and their goodsIds
     for (const dto of requestUpdateGoodsScheduleAssignmentDto) {
-      for (const id of dto.goodIds || []) {
+      for (const id of dto.goodsIds || []) {
         const idStr = id.toString();
         const updated = updatedById.get(idStr);
         const oldData = oldById.get(idStr) || null;
@@ -653,8 +663,15 @@ export class GoodsService {
       // Thực hiện tìm kiếm
       const goods = await this.goodsModel.aggregate(pipeline).exec();
 
-      // Đếm tổng số mục
-      const totalItem = await this.goodsModel.countDocuments({ tenantId });
+      // Đếm tổng số mục theo filters (không có paging)
+      const countPipeline = await this.buildQuerySearchGoodsPaging(0, 0, keyword, sortBy, filters, tenantId);
+      // Remove skip và limit từ count pipeline
+      const countOnlyPipeline = countPipeline.filter((stage: any) => !stage.$skip && !stage.$limit);
+      const countResult = await this.goodsModel.aggregate([...countOnlyPipeline, { $count: 'total' }]).exec();
+      const totalItem = countResult.length > 0 ? countResult[0].total : 0;
+
+      // Lấy count by status (theo filters nhưng không bao gồm status)
+      const countByStatus = await this.countByStatus(tenantId, keyword, filters);
 
       const filteredGoods = await Promise.all(
         goods.map(async (goods) => {
@@ -683,6 +700,7 @@ export class GoodsService {
         goods: filteredGoods, // Now properly awaited
         totalPage: Math.ceil(totalItem / pageSize),
         totalItem,
+        countByStatus,
       };
     }
   }
@@ -763,8 +781,10 @@ export class GoodsService {
       });
     }
 
-    // 5. paging: $skip + $limit
-    pipeline.push({ $skip: skip }, { $limit: pageSize });
+    // 5. paging: $skip + $limit (only if pageSize > 0)
+    if (pageSize > 0) {
+      pipeline.push({ $skip: skip }, { $limit: pageSize });
+    }
     return pipeline;
   }
 
@@ -835,5 +855,89 @@ export class GoodsService {
       }
       return category;
     });
+  }
+
+  private async countByField(
+    tenantId: Types.ObjectId,
+    field: string,
+    keyword?: string,
+    filters?: GoodsSortFilter[],
+  ): Promise<Record<string, number>> {
+    const matchConditions: any[] = [{ tenantId }];
+
+    if (keyword) {
+      matchConditions.push({
+        $or: [
+          { name: { $regex: keyword, $options: 'i' } },
+          { goodsNumber: { $regex: keyword, $options: 'i' } },
+          { customerName: { $regex: keyword, $options: 'i' } },
+          { customerPhoneNumber: { $regex: keyword, $options: 'i' } },
+          { customerAddress: { $regex: keyword, $options: 'i' } },
+          { senderName: { $regex: keyword, $options: 'i' } },
+          { senderPhoneNumber: { $regex: keyword, $options: 'i' } },
+        ],
+      });
+    }
+
+    let startDateValue: Date | null = null;
+    let endDateValue: Date | null = null;
+
+    if (Array.isArray(filters)) {
+      await Promise.all(
+        filters.map(async ({ key, value }) => {
+          if (!key || value == null) return;
+
+          // preserve previous behavior: always skip explicit status filter
+          if (key === 'status') return;
+
+          if (key === 'startDate') {
+            const dateValue = getFirstValue(value);
+            startDateValue = new Date(dateValue);
+          } else if (key === 'endDate') {
+            const dateValue = getFirstValue(value);
+            endDateValue = new Date(dateValue);
+          } else if (key === 'phoneNumber') {
+            const phoneValue = getFirstValue(value);
+            matchConditions.push({ customerPhoneNumber: { $regex: phoneValue, $options: 'i' } });
+          } else {
+            matchConditions.push(processFilterValue(key, value));
+          }
+        }),
+      );
+    }
+
+    if (startDateValue || endDateValue) {
+      const rangeCond: any = {};
+      if (startDateValue) rangeCond.$gte = startDateValue;
+      if (endDateValue) rangeCond.$lte = endDateValue;
+
+      matchConditions.push({ createdAt: rangeCond });
+    }
+
+    const groupField = `$${field}`;
+    const counts = await this.goodsModel.aggregate([
+      { $match: { $and: matchConditions } },
+      { $group: { _id: groupField, count: { $sum: 1 } } },
+      { $project: { _id: 0, key: '$_id', count: 1 } },
+    ]);
+
+    const result: Record<string, number> = {};
+    let totalAll = 0;
+    counts.forEach((item: any) => {
+      const k = item.key === null || item.key === undefined ? 'null' : String(item.key);
+      result[k] = item.count;
+      totalAll += item.count;
+    });
+
+    result['all'] = totalAll;
+    return result;
+  }
+
+  async countByStatus(
+    tenantId: Types.ObjectId,
+    keyword?: string,
+    filters?: GoodsSortFilter[],
+  ): Promise<Record<string, number>> {
+    return this.countByField(tenantId, 'status', keyword, filters);
   }
 }

@@ -37,6 +37,14 @@ export class BusProvinceService {
     return busProvinces.map((busProvince) => plainToInstance(BusProvinceDto, busProvince));
   }
 
+  async findAvailable(tenantIds: Types.ObjectId[]): Promise<BusProvinceDto[]> {
+    const busProvinces = await this.busProvinceModel
+      .find({ tenantId: { $in: tenantIds }, isActive: true })
+      .lean()
+      .exec();
+    return busProvinces.map((busProvince) => plainToInstance(BusProvinceDto, busProvince));
+  }
+
   async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<BusProvinceDto> {
     const busProvince = await this.busProvinceModel
       .findOne({ _id: id, tenantId: { $in: tenantIds } })
@@ -56,7 +64,7 @@ export class BusProvinceService {
     if (!updatedBusProvince) {
       throw new NotFoundException('Bus province not found');
     }
-    return plainToInstance(BusProvinceDto, updatedBusProvince.toObject());
+    return plainToInstance(BusProvinceDto, updatedBusProvince);
   }
 
   async delete(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<boolean> {

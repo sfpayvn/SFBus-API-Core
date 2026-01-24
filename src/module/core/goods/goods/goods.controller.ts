@@ -46,6 +46,14 @@ export class GoodsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(ROLE_CONSTANTS.ADMIN)
+  @Get('count-by-status')
+  countByStatus(@CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
+    const { tenantId } = user;
+    return this.goodsService.countByStatus(tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN)
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
     const { tenantId } = user;

@@ -8,6 +8,9 @@ export class BusProvinceDocument extends Document {
 
   @Prop({ required: true })
   name: string;
+
+  @Prop({ default: true })
+  isActive?: boolean;
 }
 
 export const BusProvinceSchema = SchemaFactory.createForClass(BusProvinceDocument);
