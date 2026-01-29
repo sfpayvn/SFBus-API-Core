@@ -26,6 +26,7 @@ import {
   getCurrentDate,
   parseTimeHmToMilliseconds,
 } from '@/utils/utils';
+import { bufferToObjectIdHex } from '@/utils/utils';
 import { customAlphabet } from 'nanoid';
 import { RequestUpdateSeatStatusDto } from '../bus-schedule-layout/dto/bus-schedule-layout.dto';
 import { BusServiceDto } from '../bus-service/dto/bus-service.dto';
@@ -71,6 +72,8 @@ export class BusScheduleService {
       const bus2Update = plainToInstance(CreateBusScheduleBusDto, bus, { excludeExtraneousValues: true });
       createBusScheduleDto.bus = bus2Update;
     }
+
+    createBusScheduleDto.currentStationId = createBusScheduleDto.busRoute.breakPoints[0].busStationId;
 
     busLayoutTemplate.seatLayouts = busLayoutTemplate.seatLayouts.map((seatLayout) => {
       seatLayout.seats = seatLayout.seats.map((seat) => ({
@@ -236,14 +239,7 @@ export class BusScheduleService {
     tenantId: Types.ObjectId,
   ): Promise<SearchBusSchedulePagingRes> {
     // Update status trong DB trước khi query
-    const pipeline = await this.buildQuerySearchBusSchedulePaging(
-      pageIdx,
-      pageSize,
-      keyword,
-      sortBy,
-      filters,
-      tenantId,
-    );
+    const pipeline = await this.buildQuerySearchBusSchedule(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
 
     // Thực hiện tìm kiếm
     const busSchedules = await this.busScheduleModel.aggregate(pipeline).exec();
@@ -279,6 +275,103 @@ export class BusScheduleService {
 
     // Trả về kết quả
     return filteredSchedules;
+  }
+
+  // Build query pipeline for departure-specific searches (sets scheduleDirection=departure)
+  async buildQuerySearchScheduleDeparture(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: BusScheduleSortFilter,
+    filters: BusScheduleSortFilter[],
+    tenantId: Types.ObjectId,
+  ) {
+    const filtersWithDirection = Array.isArray(filters)
+      ? [...filters.filter((f) => f.key !== 'scheduleDirection')]
+      : [];
+    filtersWithDirection.push({ key: 'scheduleDirection', value: 'departure' } as BusScheduleSortFilter);
+    return this.buildQuerySearchBusScheduleDirection(
+      pageIdx,
+      pageSize,
+      keyword,
+      sortBy,
+      filtersWithDirection,
+      tenantId,
+    );
+  }
+
+  // Build query pipeline for arrival-specific searches (sets scheduleDirection=arrival)
+  async buildQuerySearchScheduleArrival(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: BusScheduleSortFilter,
+    filters: BusScheduleSortFilter[],
+    tenantId: Types.ObjectId,
+  ) {
+    const filtersWithDirection = Array.isArray(filters)
+      ? [...filters.filter((f) => f.key !== 'scheduleDirection')]
+      : [];
+    filtersWithDirection.push({ key: 'scheduleDirection', value: 'arrival' } as BusScheduleSortFilter);
+    return this.buildQuerySearchBusScheduleDirection(
+      pageIdx,
+      pageSize,
+      keyword,
+      sortBy,
+      filtersWithDirection,
+      tenantId,
+    );
+  }
+
+  // Public search: departure
+  async searchBusScheduleDeparture(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: BusScheduleSortFilter,
+    filters: BusScheduleSortFilter[],
+    tenantId: Types.ObjectId,
+  ): Promise<SearchBusSchedulePagingRes> {
+    const pipeline = await this.buildQuerySearchScheduleDeparture(
+      pageIdx,
+      pageSize,
+      keyword,
+      sortBy,
+      filters,
+      tenantId,
+    );
+    const busSchedules = await this.busScheduleModel.aggregate(pipeline).exec();
+    const totalItem = await this.busScheduleModel.countDocuments({ tenantId });
+    const filteredSchedules = await this.enrichSchedules(busSchedules, tenantId);
+
+    return {
+      pageIdx,
+      busSchedules: filteredSchedules,
+      totalPage: Math.ceil(totalItem / pageSize),
+      totalItem,
+    };
+  }
+
+  // Public search: arrival
+  async searchBusScheduleArrival(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: BusScheduleSortFilter,
+    filters: BusScheduleSortFilter[],
+    tenantId: Types.ObjectId,
+  ): Promise<SearchBusSchedulePagingRes> {
+    const pipeline = await this.buildQuerySearchScheduleArrival(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
+    const busSchedules = await this.busScheduleModel.aggregate(pipeline).exec();
+    const totalItem = await this.busScheduleModel.countDocuments({ tenantId });
+    const filteredSchedules = await this.enrichSchedules(busSchedules, tenantId);
+
+    return {
+      pageIdx,
+      busSchedules: filteredSchedules,
+      totalPage: Math.ceil(totalItem / pageSize),
+      totalItem,
+    };
   }
 
   /**
@@ -379,7 +472,7 @@ export class BusScheduleService {
     return this.nanoid();
   }
 
-  async buildQuerySearchBusSchedulePaging(
+  async buildQuerySearchBusScheduleDirection(
     pageIdx: number,
     pageSize: number,
     keyword: string,
@@ -387,8 +480,6 @@ export class BusScheduleService {
     filters: BusScheduleSortFilter[],
     tenantId: Types.ObjectId,
   ) {
-    // Thêm điều kiện kiểm tra điểm khởi hành nếu có
-
     const skip = pageIdx ? (pageIdx - 1) * pageSize : 0;
 
     const pipeline: any = [];
@@ -404,6 +495,8 @@ export class BusScheduleService {
     // 2. Xác định start/end date và các filter còn lại
     let startDateValue: string = '';
     let endDateValue: string = '';
+    let scheduleDirection: string = '';
+    let currentStationIdValue: Types.ObjectId | null = null;
 
     if (Array.isArray(filters)) {
       await Promise.all(
@@ -414,19 +507,27 @@ export class BusScheduleService {
             startDateValue = getFirstValue(value);
           } else if (key === 'endDate') {
             endDateValue = getFirstValue(value);
+          } else if (key === 'scheduleDirection') {
+            scheduleDirection = getFirstValue(value);
+          } else if (key === 'currentStationId') {
+            const firstVal: any = getFirstValue(value);
+            let idHex: string | null = null;
+            if (firstVal && typeof firstVal === 'object' && firstVal.buffer != null) {
+              idHex = bufferToObjectIdHex(firstVal);
+            } else if (firstVal) {
+              idHex = firstVal;
+            }
+            currentStationIdValue = idHex ? new Types.ObjectId(idHex) : null;
           } else if (key === 'departureId') {
             matchConditions.push({ 'busRoute.breakPoints.0.busStationId': new Types.ObjectId(getFirstValue(value)) });
           } else if (key === 'destinationId') {
-            pipeline.push({
-              $addFields: {
-                lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] }, // Lấy phần tử cuối cùng
-              },
-            });
-            pipeline.push({
-              $addFields: {
-                lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] }, // Lấy phần tử cuối cùng
-              },
-            });
+            if (!pipeline.some((stage: any) => stage.$addFields?.lastBreakPoint)) {
+              pipeline.push({
+                $addFields: {
+                  lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] },
+                },
+              });
+            }
             matchConditions.push({ 'lastBreakPoint.busStationId': new Types.ObjectId(getFirstValue(value)) });
           } else {
             matchConditions.push(processFilterValue(key, value));
@@ -435,16 +536,45 @@ export class BusScheduleService {
       );
     }
 
-    // 3. Tạo điều kiện range cho createdAt nếu có startDate và/hoặc endDate
-    if (startDateValue || endDateValue) {
-      const rangeCond: any = {};
-      if (startDateValue) rangeCond.$gte = startDateValue;
-      if (endDateValue) rangeCond.$lte = endDateValue;
-
-      matchConditions.push({ startDate: rangeCond });
+    // Use `currentStationId` from UI to match route breakPoints according to scheduleDirection.
+    // For departure -> match busRoute.breakPoints[0].busStationId
+    // For arrival   -> match lastBreakPoint.busStationId (add lastBreakPoint if needed)
+    if (currentStationIdValue) {
+      if (scheduleDirection === 'arrival') {
+        if (!pipeline.some((stage: any) => stage.$addFields?.lastBreakPoint)) {
+          pipeline.push({
+            $addFields: {
+              lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] },
+            },
+          });
+        }
+        matchConditions.push({ 'lastBreakPoint.busStationId': currentStationIdValue });
+      } else {
+        matchConditions.push({ 'busRoute.breakPoints.0.busStationId': currentStationIdValue });
+      }
     }
 
-    // 4. Đẩy $match đầu tiên (không bao gồm filter status)
+    // 4. Tạo điều kiện range cho date - chọn field dựa trên scheduleDirection
+    if (scheduleDirection === 'arrival') {
+      // For arrival, use endDate within provided startDate and endDate range
+      if (startDateValue || endDateValue) {
+        const endRange: any = {};
+        if (startDateValue) endRange.$gte = startDateValue;
+        if (endDateValue) endRange.$lte = endDateValue;
+        matchConditions.push({ endDate: endRange });
+      }
+    } else {
+      // For departure or no direction, use startDate and endDate normally
+      if (startDateValue || endDateValue) {
+        const rangeCond: any = {};
+        if (startDateValue) rangeCond.$gte = startDateValue;
+        if (endDateValue) rangeCond.$lte = endDateValue;
+
+        matchConditions.push({ startDate: rangeCond });
+      }
+    }
+
+    // 5. Đẩy $match đầu tiên (không bao gồm filter status)
     const matchConditionsWithoutStatus = matchConditions.filter(
       (cond) => !cond.status && !(cond.$and && cond.$and.some((c: any) => c.status)),
     );
@@ -463,15 +593,123 @@ export class BusScheduleService {
       });
     }
 
-    // 8. $sort
+    // 7. $sort
     if (sortBy?.key) {
       pipeline.push({
         $sort: { [sortBy.key]: sortBy.value === 'ascend' ? 1 : -1 },
       });
     }
 
-    // 9. paging: $skip + $limit
+    // 8. paging: $skip + $limit
     pipeline.push({ $skip: skip }, { $limit: pageSize });
+    return pipeline;
+  }
+
+  async buildQuerySearchBusSchedule(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: BusScheduleSortFilter,
+    filters: BusScheduleSortFilter[],
+    tenantId: Types.ObjectId,
+  ) {
+    const skip = pageIdx ? (pageIdx - 1) * pageSize : 0;
+
+    const pipeline: any = [];
+    const matchConditions: any[] = [{ tenantId }];
+
+    // 1. Tìm theo keyword
+    if (keyword) {
+      matchConditions.push({
+        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+      });
+    }
+
+    // 2. Xác định start/end date và các filter còn lại
+    let startDateValue: string = '';
+    let endDateValue: string = '';
+    let scheduleDirection: string = '';
+    let currentStationIdValue: Types.ObjectId | null = null;
+
+    if (Array.isArray(filters)) {
+      await Promise.all(
+        filters.map(async ({ key, value }) => {
+          if (!key || value == null) return;
+
+          if (key === 'startDate') {
+            startDateValue = getFirstValue(value);
+          } else if (key === 'endDate') {
+            endDateValue = getFirstValue(value);
+          } else if (key === 'scheduleDirection') {
+            scheduleDirection = getFirstValue(value);
+          } else if (key === 'currentStationId') {
+            const firstVal: any = getFirstValue(value);
+            if (firstVal && typeof firstVal === 'object' && firstVal.buffer != null) {
+              currentStationIdValue = null;
+            } else {
+              currentStationIdValue = new Types.ObjectId(getFirstValue(value));
+            }
+          } else if (key === 'departureId') {
+            matchConditions.push({ 'busRoute.breakPoints.0.busStationId': new Types.ObjectId(getFirstValue(value)) });
+          } else if (key === 'destinationId') {
+            if (!pipeline.some((stage: any) => stage.$addFields?.lastBreakPoint)) {
+              pipeline.push({
+                $addFields: {
+                  lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] },
+                },
+              });
+            }
+            matchConditions.push({ 'lastBreakPoint.busStationId': new Types.ObjectId(getFirstValue(value)) });
+          } else {
+            matchConditions.push(processFilterValue(key, value));
+          }
+        }),
+      );
+    }
+
+    // 3. Tạo điều kiện range cho createdAt nếu có startDate và/hoặc endDate
+    if (startDateValue || endDateValue) {
+      const rangeCond: any = {};
+      if (startDateValue) rangeCond.$gte = startDateValue;
+      if (endDateValue) rangeCond.$lte = endDateValue;
+
+      matchConditions.push({ startDate: rangeCond });
+    }
+
+    // Use `currentStationId` from UI to match route breakPoints according to scheduleDirection.
+    // For departure -> match busRoute.breakPoints[0].busStationId
+    // For arrival   -> match lastBreakPoint.busStationId (add lastBreakPoint if needed)
+    if (currentStationIdValue) {
+      if (scheduleDirection === 'arrival') {
+        if (!pipeline.some((stage: any) => stage.$addFields?.lastBreakPoint)) {
+          pipeline.push({
+            $addFields: {
+              lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] },
+            },
+          });
+        }
+        matchConditions.push({ 'lastBreakPoint.busStationId': currentStationIdValue });
+      } else {
+        matchConditions.push({ 'busRoute.breakPoints.0.busStationId': currentStationIdValue });
+      }
+    }
+
+    // 4. Đẩy $match với điều kiện tenantId và các điều kiện khác
+    pipeline.push({
+      $match: { $and: matchConditions },
+    });
+
+    // 4. $sort
+    if (sortBy?.key) {
+      pipeline.push({
+        $sort: { [sortBy.key]: sortBy.value === 'ascend' ? 1 : -1 },
+      });
+    }
+
+    // 5. paging: $skip + $limit (only if pageSize > 0)
+    if (pageSize > 0) {
+      pipeline.push({ $skip: skip }, { $limit: pageSize });
+    }
     return pipeline;
   }
 
@@ -497,6 +735,8 @@ export class BusScheduleService {
     // 2. Xác định start/end date và các filter còn lại
     let startDateValue: string = '';
     let endDateValue: string = '';
+    let scheduleDirection: string = '';
+    let currentStationIdValue: Types.ObjectId | null = null;
 
     if (Array.isArray(filters)) {
       await Promise.all(
@@ -507,6 +747,18 @@ export class BusScheduleService {
             startDateValue = getFirstValue(value);
           } else if (key === 'endDate') {
             endDateValue = getFirstValue(value);
+          } else if (key === 'scheduleDirection') {
+            scheduleDirection = getFirstValue(value);
+          } else if (key === 'currentStationId') {
+            const firstVal: any = getFirstValue(value);
+            let idHex: string | null = null;
+            if (firstVal && typeof firstVal === 'object' && firstVal.buffer != null) {
+              idHex = bufferToObjectIdHex(firstVal);
+            } else if (firstVal) {
+              idHex = firstVal;
+            }
+            currentStationIdValue = idHex ? new Types.ObjectId(idHex) : null;
+            // Don't add to matchConditions here, handled separately after direction check
           } else if (key === 'departureId') {
             matchConditions.push({ 'busRoute.breakPoints.0.busStationId': new Types.ObjectId(getFirstValue(value)) });
           } else if (key === 'destinationId') {
@@ -528,29 +780,59 @@ export class BusScheduleService {
       );
     }
 
-    // 3. Tạo điều kiện range cho createdAt nếu có startDate và/hoặc endDate
-    if (startDateValue || endDateValue) {
-      const rangeCond: any = {};
-      if (startDateValue) rangeCond.$gte = startDateValue;
-      if (endDateValue) rangeCond.$lte = endDateValue;
-
-      matchConditions.push({ startDate: rangeCond });
+    // Use `currentStationId` from UI to match route breakPoints according to scheduleDirection.
+    // For departure -> match busRoute.breakPoints[0].busStationId
+    // For arrival   -> match lastBreakPoint.busStationId (add lastBreakPoint if needed)
+    if (currentStationIdValue) {
+      if (scheduleDirection === 'arrival') {
+        if (!pipeline.some((stage: any) => stage.$addFields?.lastBreakPoint)) {
+          pipeline.push({
+            $addFields: {
+              lastBreakPoint: { $arrayElemAt: ['$busRoute.breakPoints', -1] },
+            },
+          });
+        }
+        matchConditions.push({ 'lastBreakPoint.busStationId': currentStationIdValue });
+      } else {
+        matchConditions.push({ 'busRoute.breakPoints.0.busStationId': currentStationIdValue });
+      }
     }
 
-    // 4. Đẩy $match nếu có bất kỳ điều kiện nào
+    // 4. Xử lý date range dựa trên scheduleDirection
+    if (scheduleDirection === 'arrival') {
+      // For arrival, only use endDate, ignore startDate
+      // For arrival, use endDate within provided startDate and endDate range
+      if (startDateValue || endDateValue) {
+        const endRange: any = {};
+        if (startDateValue) endRange.$gte = startDateValue;
+        if (endDateValue) endRange.$lte = endDateValue;
+        matchConditions.push({ endDate: endRange });
+      }
+    } else {
+      // For departure or no direction, use startDate and endDate normally
+      if (startDateValue || endDateValue) {
+        const rangeCond: any = {};
+        if (startDateValue) rangeCond.$gte = startDateValue;
+        if (endDateValue) rangeCond.$lte = endDateValue;
+
+        matchConditions.push({ startDate: rangeCond });
+      }
+    }
+
+    // 5. Đẩy $match nếu có bất kỳ điều kiện nào
     if (matchConditions.length) {
       pipeline.push({
         $match: { $and: matchConditions },
       });
     }
 
-    // 4. $sort
+    // 6. $sort
     if (sortBy?.key) {
       pipeline.push({
         $sort: { [sortBy.key]: sortBy.value === 'ascend' ? 1 : -1 },
       });
     }
-    // 5. paging: $skip + $limit
+    // 7. paging: $skip + $limit
     return pipeline;
   }
 

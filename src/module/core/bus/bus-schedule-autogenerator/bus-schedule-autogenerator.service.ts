@@ -385,6 +385,7 @@ export class BusScheduleAutogeneratorService {
           name,
           busRouteId,
           busRoute: busRoute,
+          currentStationId: busRoute.breakPoints[0].busStationId,
           busTemplateId,
           busDriverIds,
           busId,
@@ -429,7 +430,7 @@ export class BusScheduleAutogeneratorService {
     const busStation = (await busStations.find(
       (busStation: BusStationDto) => busStation._id.toString() === breakPoint.busStationId.toString(),
     )) as BusStationDto;
-    const { name = '', detailAddress = '', location = '', provinceId = '' } = busStation;
+    const { name = '', detailAddress = '', location = '', provinceId = '', isOffice = false } = busStation;
 
     const province = (await busProvinces.find(
       (busProvince: BusProvinceDto) => busProvince._id.toString() === provinceId.toString(),
@@ -445,6 +446,7 @@ export class BusScheduleAutogeneratorService {
     busRouteBreakPoint.location = location;
     busRouteBreakPoint.provinceId = provinceId || new Types.ObjectId();
     busRouteBreakPoint.province = province;
+    busRouteBreakPoint.isOffice = isOffice;
     return busRouteBreakPoint;
   }
 

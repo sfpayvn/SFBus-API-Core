@@ -25,6 +25,10 @@ export class UpdateBusScheduleDto {
   @Type(() => Types.ObjectId)
   busId?: Types.ObjectId;
 
+  @IsNotEmpty()
+  @Type(() => Types.ObjectId)
+  currentStationId: Types.ObjectId;
+
   @IsOptional()
   @Type(() => Types.ObjectId)
   busDriverIds: Types.ObjectId[];

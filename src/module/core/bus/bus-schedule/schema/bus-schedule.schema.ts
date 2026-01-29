@@ -129,6 +129,9 @@ export class BusScheduleDocument extends Document {
 
   @Prop({ required: true })
   endDate: string;
+
+  @Prop({ ref: 'bus_stations' })
+  currentStationId: Types.ObjectId;
 }
 
 export const BusScheduleSchema = SchemaFactory.createForClass(BusScheduleDocument);

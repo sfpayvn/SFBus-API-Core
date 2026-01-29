@@ -108,6 +108,9 @@ export class BusScheduleDto {
   @Expose()
   endDate: string;
 
+  @Expose()
+  currentStationId: Types.ObjectId;
+
   @Exclude()
   busSeatLayoutBlockIds: Types.ObjectId[];
 

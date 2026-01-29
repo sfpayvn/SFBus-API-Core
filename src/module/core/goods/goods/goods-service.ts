@@ -742,7 +742,7 @@ export class GoodsService {
     if (Array.isArray(filters)) {
       await Promise.all(
         filters.map(async ({ key, value }) => {
-          if (!key || value == null) return;
+          if (!key) return;
 
           if (key === 'startDate') {
             const dateValue = getFirstValue(value);
@@ -774,10 +774,49 @@ export class GoodsService {
       $match: { $and: matchConditions },
     });
 
+    // 4a. $lookup để join với busSchedule nếu cần sort theo startDateSchedule
+    if (sortBy?.key === 'startDateSchedule') {
+      pipeline.push({
+        $lookup: {
+          from: 'bus_schedules',
+          localField: 'busScheduleId',
+          foreignField: '_id',
+          as: 'busScheduleData',
+        },
+      });
+      pipeline.push({
+        $unwind: {
+          path: '$busScheduleData',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
+    }
+
     // 4. $sort
     if (sortBy?.key) {
+      let sortDirection = sortBy.value === 'ascend' ? 1 : -1;
+      let sortField = sortBy.key;
+
+      // Xử lý boolean field: goodsImportant
+      if (sortBy.key === 'goodsImportant') {
+        sortDirection = sortBy.value === 'ascend' ? -1 : 1;
+      }
+      // Xử lý startDateSchedule - sort theo startDate của busSchedule
+      else if (sortBy.key === 'startDateSchedule') {
+        sortField = 'busScheduleData.startDate';
+      }
+
       pipeline.push({
-        $sort: { [sortBy.key]: sortBy.value === 'ascend' ? 1 : -1 },
+        $sort: { [sortField]: sortDirection },
+      });
+    }
+
+    // 4b. $project để loại bỏ busScheduleData nếu nó tồn tại
+    if (sortBy?.key === 'startDateSchedule') {
+      pipeline.push({
+        $project: {
+          busScheduleData: 0,
+        },
       });
     }
 

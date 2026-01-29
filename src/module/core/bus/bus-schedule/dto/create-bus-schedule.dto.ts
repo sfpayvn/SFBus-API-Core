@@ -70,6 +70,10 @@ export class CreateBusScheduleBreakPointsTimeDto extends CreateBusRouteBreakPoin
   busStationId: Types.ObjectId;
 
   @IsNotEmpty()
+  @Type(() => Boolean)
+  isOffice: boolean;
+
+  @IsNotEmpty()
   @Type(() => Types.ObjectId)
   provinceId: Types.ObjectId;
 
@@ -108,6 +112,7 @@ export class CreateBusRouteScheduleDto extends CreateBusRouteDto {
 export class CreateBusScheduleDto {
   tenantId: Types.ObjectId;
   busScheduleNumber: string;
+  currentStationId: Types.ObjectId;
 
   @IsNotEmpty()
   @Type(() => String)
