@@ -59,6 +59,18 @@ export class BusScheduleController {
     return this.busScheduleService.updateBusScheduleNote(busScheduleId, note, tenantId);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN)
+  @Put('update-current-station/:busScheduleId')
+  updateCurrentStation(
+    @Body('currentStationId', ParseObjectIdPipe) currentStationId: Types.ObjectId,
+    @Param('busScheduleId', ParseObjectIdPipe) busScheduleId: Types.ObjectId,
+    @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
+  ) {
+    const { tenantId } = user;
+    return this.busScheduleService.updateCurrentStation(busScheduleId, currentStationId, tenantId);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(ROLE_CONSTANTS.ADMIN)

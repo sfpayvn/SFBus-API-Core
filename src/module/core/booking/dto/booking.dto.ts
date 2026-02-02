@@ -91,6 +91,10 @@ export class BookingDto {
   userId: string;
 
   @Expose()
+  @Type(() => Number)
+  quantity: number;
+
+  @Expose()
   @Type(() => UserInforBookingDto)
   userInfo: UserInforBookingDto;
 

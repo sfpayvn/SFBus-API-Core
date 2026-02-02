@@ -91,6 +91,10 @@ export class BookingDocument extends Document {
   @Prop({ required: true })
   tenantId: Types.ObjectId;
 
+  // Thêm field thực tế quantity
+  @Prop({ required: true, default: 0 })
+  quantity: number;
+
   @Prop({ required: true })
   bookingNumber: string;
 
@@ -153,6 +157,16 @@ export class BookingDocument extends Document {
 }
 
 export const BookingSchema = SchemaFactory.createForClass(BookingDocument);
+
+// Tự động cập nhật quantity trước khi lưu
+BookingSchema.pre('save', function (next) {
+  if (Array.isArray(this.bookingItems)) {
+    this.quantity = this.bookingItems.length;
+  } else {
+    this.quantity = 0;
+  }
+  next();
+});
 
 // ========================================
 // INDEXES for Idempotency & Anti Double-Booking

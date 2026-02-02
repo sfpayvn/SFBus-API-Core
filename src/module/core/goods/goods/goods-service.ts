@@ -47,6 +47,18 @@ export class GoodsService {
     this.watchChanges();
   }
 
+  /**
+   * Build a generic event for any status (using GOODS_STATUS as type)
+   * @param status - status string from GOODS_STATUS
+   * @param scheduleId - related schedule
+   * @param note - optional note
+   */
+  private buildEventForStatus(status: string, scheduleId?: Types.ObjectId, note?: string) {
+    if (!status) return null;
+    return { type: status, scheduleId: scheduleId || null, note: note || '', createdAt: new Date() };
+  }
+
+
   async watchChanges() {
     try {
       const changeStream = this.goodsModel.watch();
@@ -101,7 +113,7 @@ export class GoodsService {
 
     createGoodsDto.events = [goodsEvent];
 
-    const goods = await this.goodsModel.create({ ...createGoodsDto, tenantId, status: 'new' });
+    const goods = await this.goodsModel.create({ ...createGoodsDto, tenantId, status: GOODS_STATUS.NEW });
 
     const goodsDto = plainToInstance(GoodsDto, goods.toObject()) || null;
     await this.mapGoodsImageUrl([goodsDto]);
@@ -320,6 +332,24 @@ export class GoodsService {
     const oldData = goodsDocument.toObject();
     await this.determineAndSetPaymentStatus(updateGoodsDto, goodsDocument, tenantId);
 
+    // Events: detect schedule assignment/unassignment
+    try {
+      const oldScheduleId = oldData.busScheduleId ? oldData.busScheduleId.toString() : null;
+      const newScheduleId = updateGoodsDto.busScheduleId ? updateGoodsDto.busScheduleId.toString() : null;
+      if (oldScheduleId !== newScheduleId) {
+        goodsDocument.events = goodsDocument.events || [];
+        const assignStatus = newScheduleId ? GOODS_STATUS.PENDING : GOODS_STATUS.NEW;
+        goodsDocument.events.push(this.buildEventForStatus(assignStatus, updateGoodsDto.busScheduleId));
+      }
+
+      if (updateGoodsDto.status && updateGoodsDto.status !== oldData.status) {
+        goodsDocument.events = goodsDocument.events || [];
+        goodsDocument.events.push(this.buildEventForStatus(updateGoodsDto.status, (updateGoodsDto.busScheduleId || goodsDocument.busScheduleId) ?? undefined));
+      }
+    } catch (err) {
+      // non-fatal
+    }
+
     // Xử lý cập nhật imageIds
     if (updateGoodsDto.imageIds) {
       const oldImageIds = goodsDocument.imageIds || [];
@@ -370,6 +400,24 @@ export class GoodsService {
 
         const oldData = goodsDocument.toObject();
         await this.determineAndSetPaymentStatus(dto, goodsDocument, tenantId);
+
+        // Events: detect schedule assignment/unassignment per dto
+        try {
+          const oldScheduleId = oldData.busScheduleId ? oldData.busScheduleId.toString() : null;
+          const newScheduleId = dto.busScheduleId ? dto.busScheduleId.toString() : null;
+          if (oldScheduleId !== newScheduleId) {
+            goodsDocument.events = goodsDocument.events || [];
+            const assignStatus = newScheduleId ? GOODS_STATUS.PENDING : GOODS_STATUS.NEW;
+            goodsDocument.events.push(this.buildEventForStatus(assignStatus, dto.busScheduleId));
+          }
+
+          if (dto.status && dto.status !== oldData.status) {
+            goodsDocument.events = goodsDocument.events || [];
+            goodsDocument.events.push(this.buildEventForStatus(dto.status, (dto.busScheduleId || goodsDocument.busScheduleId) ?? undefined));
+          }
+        } catch (err) {
+          // ignore
+        }
 
         // Xử lý cập nhật imageIds
         if (dto.imageIds) {
@@ -459,14 +507,16 @@ export class GoodsService {
       const busScheduleId = dto.busScheduleId;
       if (!ids || ids.length === 0) continue;
       if (!busScheduleId) {
+        const ev = this.buildEventForStatus(GOODS_STATUS.NEW, undefined);
         await this.goodsModel.updateMany(
           { _id: { $in: ids }, tenantId },
-          { $set: { busScheduleId: null, status: GOODS_STATUS.NEW } },
+          { $set: { busScheduleId: null, status: GOODS_STATUS.NEW }, $push: { events: ev } },
         );
       } else {
+        const ev = this.buildEventForStatus(GOODS_STATUS.PENDING, busScheduleId as any);
         await this.goodsModel.updateMany(
           { _id: { $in: ids }, tenantId },
-          { $set: { busScheduleId: busScheduleId as any, status: GOODS_STATUS.PENDING } },
+          { $set: { busScheduleId: busScheduleId as any, status: GOODS_STATUS.PENDING }, $push: { events: ev } },
         );
       }
     }
@@ -532,9 +582,11 @@ export class GoodsService {
     }
 
     // 2) Execute a single updateMany to set new status for matching goods
+    // Always push event for status change
+    const pushEvent = this.buildEventForStatus(requestUpdateGoodsScheduleBoardingDto.status, requestUpdateGoodsScheduleBoardingDto.busScheduleId);
     await this.goodsModel.updateMany(
       { _id: { $in: goodsIds }, tenantId, busScheduleId: requestUpdateGoodsScheduleBoardingDto.busScheduleId },
-      { $set: { status: requestUpdateGoodsScheduleBoardingDto.status } },
+      { $set: { status: requestUpdateGoodsScheduleBoardingDto.status }, $push: { events: pushEvent } },
     );
 
     // 3) Re-fetch updated documents with populates (lean) and preserve order
@@ -606,6 +658,10 @@ export class GoodsService {
       if (!goodsDocument) {
         throw new NotFoundException(`Goods with id ${id} not found`);
       }
+
+      // push event based on status change
+      goodsDocument.events = goodsDocument.events || [];
+      goodsDocument.events.push(this.buildEventForStatus(status, goodsDocument.busScheduleId ?? undefined));
 
       goodsDocument.status = status;
 

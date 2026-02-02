@@ -468,6 +468,26 @@ export class BusScheduleService {
     return updatedBusSchedule.note;
   }
 
+  async updateCurrentStation(
+    busScheduleId: Types.ObjectId,
+    currentStationId: Types.ObjectId,
+    tenantId: Types.ObjectId,
+  ): Promise<BusScheduleDto> {
+    if (!busScheduleId) {
+      throw new NotFoundException(`Bus Schedule not found.`);
+    }
+
+    const updated = await this.busScheduleModel
+      .findOneAndUpdate({ _id: busScheduleId, tenantId }, { $set: { currentStationId } }, { new: true })
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Bus Schedule not found.`);
+    }
+
+    return plainToInstance(BusScheduleDto, updated.toObject());
+  }
+
   generateBusScheduleNumber(): string {
     return this.nanoid();
   }

@@ -78,7 +78,7 @@ export class RegisterSubscriptionDto {
 
 export class SearchTenantSubscriptionQuerySortFilter {
   key: string;
-  value: string;
+  value: string | string[] | Types.ObjectId | Types.ObjectId[];
 }
 
 export class SearchTenantSubscriptionQuery {

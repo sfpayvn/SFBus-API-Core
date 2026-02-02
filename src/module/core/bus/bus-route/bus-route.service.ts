@@ -51,6 +51,7 @@ export class BusRouteService {
     const busRouteModel = await this.busRouteModel
       .findOne({ _id: id, tenantId: { $in: tenantIds } })
       .populate('breakPoints.busStation')
+      .lean()
       .exec();
     if (!busRouteModel) throw new NotFoundException('Bus route not found');
     const busRoute = plainToInstance(BusRouteDto, busRouteModel);

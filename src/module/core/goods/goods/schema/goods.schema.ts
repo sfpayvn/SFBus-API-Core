@@ -122,6 +122,20 @@ export class GoodsDocument extends Document {
   @Prop({ type: Types.ObjectId, default: null })
   currentScheduleId: Types.ObjectId | null; // schedule hiện tại (alias cho busScheduleId)
 
+  @Prop({
+    type: [
+      {
+        type: { type: String, enum: ['CREATED','ASSIGNED_TO_SCHEDULE','UNASSIGNED_FROM_SCHEDULE','LOADED_ON_BUS','DROPPED_AT_STATION','DELIVERED'] },
+        stationId: { type: Types.ObjectId, default: null },
+        scheduleId: { type: Types.ObjectId, default: null },
+        note: { type: String, default: '' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  events: any[];
+
   // Delivery type & address
   @Prop({
     type: String,

@@ -18,6 +18,7 @@ import { BusDocument } from '../bus/bus/schema/bus.schema';
 import { CounterService } from '../counter/counter-service';
 import { processFilterValue, getFirstValue, getCurrentDate, toObjectId } from '@/utils/utils';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+import e from 'express';
 
 @Injectable()
 export class BookingService {
@@ -390,9 +391,7 @@ export class BookingService {
       .exec();
 
     if (!bookings || bookings.length === 0) {
-      throw new NotFoundException(
-        `Bookings with busScheduleId "${busScheduleId}" and booking items not found.`,
-      );
+      throw new NotFoundException(`Bookings with busScheduleId "${busScheduleId}" and booking items not found.`);
     }
 
     // Store old data and update items
@@ -430,11 +429,7 @@ export class BookingService {
       throw new NotFoundException(`No matching booking items found to update.`);
     }
 
-    await this.busScheduleLayoutService.updateSeatStatusByBusSchedule(
-      busScheduleId,
-      updateSeatStatusList,
-      tenantId,
-    );
+    await this.busScheduleLayoutService.updateSeatStatusByBusSchedule(busScheduleId, updateSeatStatusList, tenantId);
 
     // Query with populate to get updated booking items with complete data
     const updatedBookings = await this.bookingModel
@@ -852,7 +847,7 @@ export class BookingService {
     filters: BookingSortFilter[],
     tenantId: Types.ObjectId,
   ): Promise<SearchBookingPagingRes> {
-    const { match, skip } = await this.buildQuerySearchBookingPaging(
+    const pipeline = await this.buildQuerySearchBookingPaging(
       pageIdx,
       pageSize,
       keyword,
@@ -861,23 +856,16 @@ export class BookingService {
       tenantId,
     );
 
-    let query = this.bookingModel.find(match);
+    // Use aggregate for paging and sorting
+    const items = await this.bookingModel.aggregate(pipeline).exec();
 
-    if (sortBy?.key) {
-      const sortValue = getFirstValue(sortBy.value);
-      query = query.sort({ [sortBy.key]: sortValue === 'ascend' ? 1 : -1 });
-    }
+    // Populate manually after aggregate (if needed)
+    // You may need to refactor this for full populate support
 
-    const items = await query
-      .skip(skip)
-      .limit(pageSize)
-      .populate('busRoute')
-      .populate('busSchedule')
-      .populate({ path: 'payments', populate: { path: 'paymentMethod' } })
-      .lean()
-      .exec();
+    const countOnlyPipeline = await this.buildQuerySearchBookingPaging(0, 0, keyword, sortBy, filters, tenantId);
+    const countResult = await this.bookingModel.aggregate([...countOnlyPipeline, { $count: 'total' }]).exec();
+    const totalItem = countResult.length > 0 ? countResult[0].total : 0;
 
-    const totalItem = await this.bookingModel.countDocuments(match);
     const bookings = items.map((b) => this.toBookingDto(b)) || [];
 
     return {
@@ -896,12 +884,17 @@ export class BookingService {
     filters: BookingSortFilter[],
     tenantId: Types.ObjectId,
   ) {
-    const skip = pageIdx ? (pageIdx - 1) * pageSize : 0;
-    const match: any = { tenantId };
-    const ands: any[] = [];
+    // pageIdx: 1-based index
+    let skip = 0;
+    if (pageIdx && pageSize) {
+      skip = Math.max((pageIdx - 1) * pageSize, 0);
+    }
+
+    const pipeline: any = [];
+    const matchConditions: any[] = [{ tenantId }];
 
     if (keyword) {
-      ands.push({
+      matchConditions.push({
         $or: [
           { name: { $regex: keyword, $options: 'i' } },
           { bookingNumber: { $regex: keyword, $options: 'i' } },
@@ -927,9 +920,9 @@ export class BookingService {
           endDateValue = new Date(dateValue);
         } else if (key === 'phoneNumber') {
           const phoneValue = getFirstValue(value);
-          ands.push({ 'userInfo.phoneNumber': { $regex: phoneValue, $options: 'i' } });
+          matchConditions.push({ 'userInfo.phoneNumber': { $regex: phoneValue, $options: 'i' } });
         } else {
-          ands.push(processFilterValue(key, value));
+          matchConditions.push(processFilterValue(key, value));
         }
       }
     }
@@ -938,12 +931,41 @@ export class BookingService {
       const range: any = {};
       if (startDateValue) range.$gte = startDateValue;
       if (endDateValue) range.$lte = endDateValue;
-      ands.push({ createdAt: range });
+      matchConditions.push({ createdAt: range });
     }
 
-    if (ands.length) match.$and = ands;
+    // 4. Đẩy $match với điều kiện tenantId và các điều kiện khác
+    pipeline.push({
+      $match: { $and: matchConditions },
+    });
 
-    return { match, skip };
+    // $lookup for busSchedule
+    pipeline.push({
+      $lookup: {
+        from: 'bus_schedules',
+        localField: 'busScheduleId',
+        foreignField: '_id',
+        as: 'busSchedule',
+      },
+    });
+    pipeline.push({
+      $unwind: { path: '$busSchedule', preserveNullAndEmptyArrays: true }
+    });
+
+    // 4. $sort
+    if (sortBy?.key) {
+      let sortDirection = sortBy.value === 'ascend' ? 1 : -1;
+      let sortField = sortBy.key;
+      pipeline.push({
+        $sort: { [sortField]: sortDirection },
+      });
+    }
+    // Pagination
+    if (pageSize > 0) {
+      pipeline.push({ $skip: skip });
+      pipeline.push({ $limit: pageSize });
+    }
+    return pipeline;
   }
 
   // -------------------------

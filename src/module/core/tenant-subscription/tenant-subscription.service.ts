@@ -13,6 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { SeatTypeDto, SearchSeatTypeQuerySortFilter } from '../seat/seat-type/dto/seat-type.dto';
 import { DURATION_STATUS } from '@/common/constants/status.constants';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { getFirstValue } from '@/utils/utils';
 
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
@@ -186,7 +187,7 @@ export class TenantSubscriptionService {
     const tenantId = filters.find((f) => f.key === 'tenantId')?.value;
 
     // Đếm tổng số mục
-    const countQuery = tenantId ? { tenantId: new Types.ObjectId(tenantId) } : {};
+    const countQuery = tenantId ? { tenantId } : {};
     const totalItem = await this.tenantSubModel.countDocuments(countQuery);
 
     const result = plainToInstance(
@@ -206,8 +207,8 @@ export class TenantSubscriptionService {
     pageIdx: number,
     pageSize: number,
     keyword: string,
-    sortBy: SearchSeatTypeQuerySortFilter,
-    filters: SearchSeatTypeQuerySortFilter[],
+    sortBy: SearchTenantSubscriptionQuerySortFilter,
+    filters: SearchTenantSubscriptionQuerySortFilter[],
   ) {
     // Thêm điều kiện kiểm tra điểm khởi hành nếu có
 
@@ -233,9 +234,9 @@ export class TenantSubscriptionService {
           if (!key || value == null) return;
 
           if (key === 'startDate') {
-            startDateValue = value;
+            startDateValue = getFirstValue(value);
           } else if (key === 'endDate') {
-            endDateValue = value;
+            endDateValue = getFirstValue(value);
           } else {
             matchConditions.push({ [key]: value });
           }

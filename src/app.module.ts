@@ -1,13 +1,27 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CoreModule } from './module/core/core.module';
+
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
 import { AdminModule } from './module/admin/admin.module';
 import { PosModule } from './module/pos/pos.module';
-import { DriverModule } from './module/core/user/driver/driver.module';
 import { ClientModule } from './module/client/client.module';
+import { DriverModule } from './module/driver/driver.module';
+
+import { parseModules } from './common/module-flags';
+import { CoreModule } from './module/core/core.module';
+
+const enabled = parseModules(process.env.APP_MODULES);
+
+// Luôn có Core (tuỳ bạn)
+const featureModules = [
+  enabled.has('admin') ? AdminModule : null,
+  enabled.has('pos') ? PosModule : null,
+  enabled.has('client') ? ClientModule : null,
+  enabled.has('driver') ? DriverModule : null,
+].filter(Boolean) as any[];
 
 @Module({
   imports: [
@@ -23,10 +37,7 @@ import { ClientModule } from './module/client/client.module';
       inject: [ConfigService],
     }),
     CoreModule,
-    AdminModule,
-    PosModule,
-    DriverModule,
-    ClientModule,
+    ...featureModules,
   ],
   controllers: [AppController],
   providers: [AppService],
