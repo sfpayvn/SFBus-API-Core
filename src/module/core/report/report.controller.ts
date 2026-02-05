@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Post, Body } from '@nestjs/common';
+import { Controller, UseGuards, Post, Get, Body, Param, Query } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { JwtAuthGuard } from '@/guards/jwt-auth.guard';
 import { RolesGuard } from '@/guards/roles.guard';
@@ -15,6 +15,7 @@ import {
   GoodsDetailQueryDto,
   PaymentDetailQueryDto,
 } from './dto/report-details.dto';
+import { ScheduleReportQueryDto } from './dto/schedule-report-detail.dto';
 
 @Controller('report')
 @UseGuards(JwtAuthGuard, RolesGuard)

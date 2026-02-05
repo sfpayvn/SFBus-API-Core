@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { CreateBusStationDto } from './dto/create-bus-station.dto';
 import { UpdateBusStationDto } from './dto/update-bus-station.dto';
 import { BusStationDto, SearchBusStationsQuerySortFilter, SearchBusStationsRes } from './dto/bus-station.dto';
@@ -21,10 +21,11 @@ export class BusStationService {
     createBusStationDtos: CreateBusStationDto[],
     tenantId: Types.ObjectId,
     provinceId: Types.ObjectId,
+    session?: ClientSession,
   ): Promise<BusStationDto[]> {
     const busStationPromises = createBusStationDtos.map(async (dto) => {
       const createdBusStation = new this.busStationModel({ ...dto, tenantId, provinceId });
-      const savedBusStation = await createdBusStation.save();
+      const savedBusStation = await createdBusStation.save({ session });
       return plainToInstance(BusStationDto, savedBusStation.toObject());
     });
 
@@ -78,9 +79,20 @@ export class BusStationService {
     return result;
   }
 
-  async findAllAvailable(tenantIds: Types.ObjectId[]): Promise<BusStationDto[]> {
+  async findAllAvailable(tenantId: Types.ObjectId): Promise<BusStationDto[]> {
     const busStations = await this.busStationModel
-      .find({ tenantId: { $in: tenantIds }, provinceId: { $ne: null }, isActive: true })
+      .find({ tenantId, provinceId: { $ne: null }, isActive: true })
+      .lean()
+      .exec();
+    let result = busStations.map((busStation) => plainToInstance(BusStationDto, busStation));
+    result = await this.mapImageUrl(result);
+    return result;
+  }
+
+
+   async findAllUnAssignedAvailable(tenantId: Types.ObjectId): Promise<BusStationDto[]> {
+    const busStations = await this.busStationModel
+      .find({ tenantId, provinceId: { $eq: null }, isActive: true })
       .lean()
       .exec();
     let result = busStations.map((busStation) => plainToInstance(BusStationDto, busStation));

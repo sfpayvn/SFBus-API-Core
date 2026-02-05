@@ -1,7 +1,8 @@
 import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CloneBusProvinceDto, CreateBusProvinceDto } from './dto/create-bus-province.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, ClientSession } from 'mongoose';
+import { Transactional } from '../../../../common/decorators/transaction.decorator';
 import { BusProvinceDto, SearchBusProvincesQuerySortFilter, SearchBusProvincesRes } from './dto/bus-province.dto';
 import { UpdateBusProvinceDto } from './dto/update-bus-province.dto';
 import { BusProvinceDocument } from './schema/bus-schema.schema';
@@ -16,16 +17,17 @@ export class BusProvinceService {
     @Inject(forwardRef(() => BusStationService)) private readonly busStationService: BusStationService,
   ) {}
 
-  async create(createBusProvinceDto: CreateBusProvinceDto, tenantId: Types.ObjectId): Promise<BusProvinceDto> {
+  async create(createBusProvinceDto: CreateBusProvinceDto, tenantId: Types.ObjectId, session?: ClientSession): Promise<BusProvinceDto> {
     const createBusProvince = new this.busProvinceModel({ ...createBusProvinceDto, tenantId });
-    const savedBusProvince = await createBusProvince.save();
+    const savedBusProvince = await createBusProvince.save({ session });
     return plainToInstance(BusProvinceDto, savedBusProvince);
   }
 
-  async clone(cloneBusProvinceDto: CloneBusProvinceDto, tenantId: Types.ObjectId): Promise<BusProvinceDto> {
-    const busProvince = await this.create(cloneBusProvinceDto.busProvince, tenantId);
+  @Transactional()
+  async clone(cloneBusProvinceDto: CloneBusProvinceDto, tenantId: Types.ObjectId, session?: ClientSession): Promise<BusProvinceDto> {
+    const busProvince = await this.create(cloneBusProvinceDto.busProvince, tenantId, session);
 
-    await this.busStationService.createMany(cloneBusProvinceDto.busStations, tenantId, busProvince._id);
+    await this.busStationService.createMany(cloneBusProvinceDto.busStations, tenantId, busProvince._id, session);
     return busProvince;
   }
 
@@ -37,11 +39,8 @@ export class BusProvinceService {
     return busProvinces.map((busProvince) => plainToInstance(BusProvinceDto, busProvince));
   }
 
-  async findAvailable(tenantIds: Types.ObjectId[]): Promise<BusProvinceDto[]> {
-    const busProvinces = await this.busProvinceModel
-      .find({ tenantId: { $in: tenantIds }, isActive: true })
-      .lean()
-      .exec();
+  async findAvailable(tenantId: Types.ObjectId): Promise<BusProvinceDto[]> {
+    const busProvinces = await this.busProvinceModel.find({ tenantId, isActive: true }).lean().exec();
     return busProvinces.map((busProvince) => plainToInstance(BusProvinceDto, busProvince));
   }
 

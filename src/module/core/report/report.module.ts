@@ -19,6 +19,10 @@ import { ReportBookingService } from './services/report-booking.service';
 import { ReportGoodsService } from './services/report-goods.service';
 import { ReportPaymentService } from './services/report-payment.service';
 import { ReportScheduleService } from './services/report-schedule.service';
+import {
+  BusScheduleLayoutDocument,
+  BusScheduleLayoutSchema,
+} from '../bus/bus-schedule-layout/schema/bus-schedule-layout.schema';
 
 @Module({
   imports: [
@@ -30,6 +34,7 @@ import { ReportScheduleService } from './services/report-schedule.service';
       { name: BusScheduleDocument.name, schema: BusScheduleSchema },
       { name: GoodsDocument.name, schema: GoodsSchema },
       { name: PaymentDocument.name, schema: PaymentSchema },
+      { name: BusScheduleLayoutDocument.name, schema: BusScheduleLayoutSchema },
     ]),
     forwardRef(() => BusScheduleModule),
     forwardRef(() => BusRouteModule),

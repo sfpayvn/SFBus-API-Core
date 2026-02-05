@@ -10,6 +10,7 @@ import {
   GoodsDetailQueryDto,
   PaymentDetailQueryDto,
 } from './dto/report-details.dto';
+import { ScheduleReportDetailDto, ScheduleReportQueryDto } from './dto/schedule-report-detail.dto';
 import { ReportBookingService } from './services/report-booking.service';
 import { ReportGoodsService } from './services/report-goods.service';
 import { ReportPaymentService } from './services/report-payment.service';
@@ -177,5 +178,14 @@ export class ReportService {
       TRACKING_TYPES.PAYMENT_BOOKING_PROCESSED,
       timezoneOffset,
     );
+  }
+
+  // ==================== Schedule Detail Report ====================
+  async getScheduleReportDetail(
+    busScheduleId: Types.ObjectId,
+    tenantId: Types.ObjectId,
+    query?: ScheduleReportQueryDto,
+  ): Promise<ScheduleReportDetailDto> {
+    return this.reportScheduleService.getScheduleReportDetail(busScheduleId, tenantId, query);
   }
 }

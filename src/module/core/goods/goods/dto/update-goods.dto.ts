@@ -32,6 +32,10 @@ export class RequestUpdateGoodsScheduleAssignmentDto {
 
   @Type(() => Types.ObjectId)
   busScheduleId: Types.ObjectId | null;
+
+  @IsNotEmpty()
+  @Type(() => Types.ObjectId)
+  currentStationId: Types.ObjectId;
 }
 
 export class RequestUpdateGoodsScheduleBoardingDto {
@@ -46,4 +50,8 @@ export class RequestUpdateGoodsScheduleBoardingDto {
   @IsNotEmpty()
   @Type(() => Types.ObjectId)
   busScheduleId: Types.ObjectId;
+
+  @IsNotEmpty()
+  @Type(() => Types.ObjectId)
+  currentStationId: Types.ObjectId;
 }

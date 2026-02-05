@@ -16,12 +16,10 @@ export class CreateBusStationDto {
   location: string;
 
   @IsNotEmpty()
-  @IsMongoId()
   @Type(() => Types.ObjectId)
   provinceId: Types.ObjectId;
 
   @IsOptional()
-  @IsMongoId()
   @Type(() => Types.ObjectId)
   imageId?: Types.ObjectId;
 

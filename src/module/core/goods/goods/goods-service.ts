@@ -58,7 +58,6 @@ export class GoodsService {
     return { type: status, scheduleId: scheduleId || null, note: note || '', createdAt: new Date() };
   }
 
-
   async watchChanges() {
     try {
       const changeStream = this.goodsModel.watch();
@@ -344,7 +343,12 @@ export class GoodsService {
 
       if (updateGoodsDto.status && updateGoodsDto.status !== oldData.status) {
         goodsDocument.events = goodsDocument.events || [];
-        goodsDocument.events.push(this.buildEventForStatus(updateGoodsDto.status, (updateGoodsDto.busScheduleId || goodsDocument.busScheduleId) ?? undefined));
+        goodsDocument.events.push(
+          this.buildEventForStatus(
+            updateGoodsDto.status,
+            (updateGoodsDto.busScheduleId || goodsDocument.busScheduleId) ?? undefined,
+          ),
+        );
       }
     } catch (err) {
       // non-fatal
@@ -413,7 +417,9 @@ export class GoodsService {
 
           if (dto.status && dto.status !== oldData.status) {
             goodsDocument.events = goodsDocument.events || [];
-            goodsDocument.events.push(this.buildEventForStatus(dto.status, (dto.busScheduleId || goodsDocument.busScheduleId) ?? undefined));
+            goodsDocument.events.push(
+              this.buildEventForStatus(dto.status, (dto.busScheduleId || goodsDocument.busScheduleId) ?? undefined),
+            );
           }
         } catch (err) {
           // ignore
@@ -510,13 +516,23 @@ export class GoodsService {
         const ev = this.buildEventForStatus(GOODS_STATUS.NEW, undefined);
         await this.goodsModel.updateMany(
           { _id: { $in: ids }, tenantId },
-          { $set: { busScheduleId: null, status: GOODS_STATUS.NEW }, $push: { events: ev } },
+          {
+            $set: { busScheduleId: null, status: GOODS_STATUS.NEW, currentStationId: dto.currentStationId },
+            $push: { events: ev },
+          },
         );
       } else {
         const ev = this.buildEventForStatus(GOODS_STATUS.PENDING, busScheduleId as any);
         await this.goodsModel.updateMany(
           { _id: { $in: ids }, tenantId },
-          { $set: { busScheduleId: busScheduleId as any, status: GOODS_STATUS.PENDING }, $push: { events: ev } },
+          {
+            $set: {
+              busScheduleId: busScheduleId as any,
+              status: GOODS_STATUS.PENDING,
+              currentStationId: dto.currentStationId,
+            },
+            $push: { events: ev },
+          },
         );
       }
     }
@@ -583,10 +599,19 @@ export class GoodsService {
 
     // 2) Execute a single updateMany to set new status for matching goods
     // Always push event for status change
-    const pushEvent = this.buildEventForStatus(requestUpdateGoodsScheduleBoardingDto.status, requestUpdateGoodsScheduleBoardingDto.busScheduleId);
+    const pushEvent = this.buildEventForStatus(
+      requestUpdateGoodsScheduleBoardingDto.status,
+      requestUpdateGoodsScheduleBoardingDto.busScheduleId,
+    );
     await this.goodsModel.updateMany(
       { _id: { $in: goodsIds }, tenantId, busScheduleId: requestUpdateGoodsScheduleBoardingDto.busScheduleId },
-      { $set: { status: requestUpdateGoodsScheduleBoardingDto.status }, $push: { events: pushEvent } },
+      {
+        $set: {
+          status: requestUpdateGoodsScheduleBoardingDto.status,
+          currentStationId: requestUpdateGoodsScheduleBoardingDto.currentStationId,
+        },
+        $push: { events: pushEvent },
+      },
     );
 
     // 3) Re-fetch updated documents with populates (lean) and preserve order
