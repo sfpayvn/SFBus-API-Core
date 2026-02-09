@@ -181,7 +181,8 @@ export class BusStationService {
     return await Promise.all(
       busStations.map(async (busStation) => {
         if (busStation.imageId) {
-          busStation.image = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${busStation.imageId.toString()}`;
+          const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+          busStation.image = `${process.env.DOMAIN}${port}/file/view/${busStation.imageId.toString()}`;
         }
         return busStation;
       }),

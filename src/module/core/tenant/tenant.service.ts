@@ -284,10 +284,12 @@ export class TenantService {
   }
 
   private async mapLogoUrl(tenants: TenantDto[]): Promise<TenantDto[]> {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+
     return tenants.map((tenant) => ({
       ...tenant,
       logo: tenant.logoId
-        ? `${process.env.DOMAIN}:${process.env.PORT}/file/view/${tenant.logoId.toString()}`
+        ? `${process.env.DOMAIN}${port}/file/view/${tenant.logoId.toString()}`
         : undefined,
     }));
   }

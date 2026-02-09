@@ -79,12 +79,12 @@ export class FileService {
             }
           });
         });
-
+        const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
         const file: FileDto = {
           _id: id,
           tenantId,
           filename: part.filename,
-          link: `${process.env.DOMAIN}:${process.env.PORT}/file/view/${id.toString()}`,
+          link: `${process.env.DOMAIN}${port}/file/view/${id.toString()}`,
           contentType: part.mimetype,
           folderId: folderId,
           isFavorite: false,
@@ -115,9 +115,10 @@ export class FileService {
 
     if (file) {
       const obj = file;
+      const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : ''; 
       return plainToInstance(FileDto, {
         ...obj,
-        link: `${process.env.DOMAIN}:${process.env.PORT}/file/view/${file._id}`,
+        link: `${process.env.DOMAIN}${port}/file/view/${file._id}`,
       });
     }
 
@@ -236,12 +237,12 @@ export class FileService {
     if (!updatedFileFolder) {
       throw new NotFoundException(`File with ID "${updateFileDto._id}" not found.`);
     }
-
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     const result = plainToInstance(FileDto, {
       ...updatedFileFolder,
       folderId: updatedFileFolder.metadata?.folderId,
       isFavorite: updatedFileFolder.metadata?.isFavorite,
-      link: `${process.env.DOMAIN}:${process.env.PORT}/file/view/${updatedFileFolder._id}`,
+      link: `${process.env.DOMAIN}${port}/file/view/${updatedFileFolder._id}`,
     });
 
     return result;
@@ -277,13 +278,13 @@ export class FileService {
         tenantId,
       })
       .exec();
-
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     return updatedFiles.map((file) =>
       plainToInstance(FileDto, {
         ...file,
         folderId: folderId,
         isFavorite: file.metadata?.isFavorite,
-        link: `${process.env.DOMAIN}:${process.env.PORT}/file/view/${file._id}`,
+        link: `${process.env.DOMAIN}${port}/file/view/${file._id}`,
       }),
     );
   }
@@ -341,7 +342,7 @@ export class FileService {
 
     // Đếm tổng số mục
     const totalItem = await this.fileModel.countDocuments({ 'metadata.tenantId': { $in: tenantIds } });
-
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     const result = plainToInstance(
       FileDto,
       files.map((file) => {
@@ -350,7 +351,7 @@ export class FileService {
           folderId: file.metadata?.folderId,
           tenantId: file.metadata?.tenantId,
           isFavorite: file.metadata?.isFavorite,
-          link: process.env.DOMAIN + ':' + process.env.PORT + '/file/view/' + file._id, // thêm thuộc tính link với giá trị mong muốn
+          link: `${process.env.DOMAIN}${port}/file/view/${file._id}`, // thêm thuộc tính link với giá trị mong muốn
         };
       }),
     );

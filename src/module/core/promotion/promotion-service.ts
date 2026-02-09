@@ -323,9 +323,11 @@ export class PromotionService {
   }
 
   private mapImageUrl(promotions: PromotionDto[]): PromotionDto[] {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+
     return promotions.map((promotion) => ({
       ...promotion,
-      image: `${process.env.DOMAIN}:${process.env.PORT}/file/view/${promotion.imageId.toString()}`,
+      image: `${process.env.DOMAIN}${port}/file/view/${promotion.imageId.toString()}`,
     }));
   }
 }

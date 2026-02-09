@@ -435,10 +435,12 @@ export class UserService {
   }
 
   async mapUserAvatarUrl(users: UserDto[]): Promise<UserDto[]> {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+
     return await Promise.all(
       users.map(async (user) => {
         if (user.avatarId) {
-          user.avatar = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${user.avatarId.toString()}`;
+          user.avatar = `${process.env.DOMAIN}${port}/file/view/${user.avatarId.toString()}`;
         }
         return user;
       }),

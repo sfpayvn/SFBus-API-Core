@@ -952,11 +952,12 @@ export class GoodsService {
   }
 
   async mapGoodsImageUrl(goods: GoodsDto[]): Promise<GoodsDto[]> {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     return await Promise.all(
       goods.map(async (good: GoodsDto) => {
         if (good.imageIds) {
           good.images = good.imageIds.map(
-            (id) => `${process.env.DOMAIN}:${process.env.PORT}/file/view/${id.toString()}`,
+            (id) => `${process.env.DOMAIN}${port}/file/view/${id.toString()}`,
           );
         }
         await this.mapGoodsCategoryImageUrl(good.categories);
@@ -969,9 +970,10 @@ export class GoodsService {
     if (!goodsCategories || goodsCategories.length === 0) {
       return goodsCategories;
     }
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     return goodsCategories.map((category: GoodsCategoryDto) => {
       if (category.iconId) {
-        category.icon = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${category.iconId.toString()}`;
+        category.icon = `${process.env.DOMAIN}${port}/file/view/${category.iconId.toString()}`;
       }
       return category;
     });

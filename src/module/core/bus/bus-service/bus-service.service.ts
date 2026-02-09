@@ -170,7 +170,8 @@ export class BusServiceService {
   mapBusServiceIconUrl(busServices: BusServiceDto[]): BusServiceDto[] {
     return busServices.map((busService) => {
       if (busService.iconId) {
-        busService.icon = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${busService.iconId.toString()}`;
+        const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+        busService.icon = `${process.env.DOMAIN}${port}/file/view/${busService.iconId.toString()}`;
       }
       return busService;
     });
