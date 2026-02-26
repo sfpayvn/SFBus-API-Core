@@ -119,6 +119,10 @@ export class BookingService {
       throw new NotFoundException(`Bus Schedule with ID "${busScheduleId}" not found.`);
     }
 
+    if (!createBookings[0].bookingItems || createBookings[0].bookingItems.length === 0) {
+      throw new NotFoundException('Booking items not found');
+    }
+
     // Step 2: Set expiration time - only for CLIENT source
     const now = Date.now();
     const paymentTime = new Date(now + 10 * 60 * 1000); // 10 minutes
@@ -847,14 +851,7 @@ export class BookingService {
     filters: BookingSortFilter[],
     tenantId: Types.ObjectId,
   ): Promise<SearchBookingPagingRes> {
-    const pipeline = await this.buildQuerySearchBookingPaging(
-      pageIdx,
-      pageSize,
-      keyword,
-      sortBy,
-      filters,
-      tenantId,
-    );
+    const pipeline = await this.buildQuerySearchBookingPaging(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
 
     // Use aggregate for paging and sorting
     const items = await this.bookingModel.aggregate(pipeline).exec();
@@ -949,7 +946,7 @@ export class BookingService {
       },
     });
     pipeline.push({
-      $unwind: { path: '$busSchedule', preserveNullAndEmptyArrays: true }
+      $unwind: { path: '$busSchedule', preserveNullAndEmptyArrays: true },
     });
 
     // 4. $sort

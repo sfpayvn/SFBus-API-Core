@@ -168,8 +168,6 @@ export class BusScheduleService {
       throw new NotFoundException(`Không tìm thấy lịch trình xe buýt với ID ${id}`);
     }
 
-    const currentDate = getCurrentDate();
-
     const busSchedule = plainToInstance(BusScheduleDto, busScheduleModel);
     const enrichSchedules = await this.enrichSchedules([busSchedule], tenantId);
 

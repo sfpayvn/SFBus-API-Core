@@ -73,6 +73,34 @@ export class ReportService {
   }
 
   // ==================== Goods ====================
+
+  // ==================== Payment/Revenue from Goods ====================
+  // Revenue từ goods
+  async getRevenueGoodsStats(
+    query: StatsQueryDto,
+    tenantId: Types.ObjectId,
+    timezoneOffset: number,
+  ): Promise<StatsResponseDto> {
+    return this.reportPaymentService.getRevenueStats(
+      query,
+      tenantId,
+      TRACKING_TYPES.PAYMENT_GOODS_PROCESSED,
+      timezoneOffset,
+    );
+  }
+
+  async getRevenueGoodsChartStats(
+    query: ChartStatsQueryDto,
+    tenantId: Types.ObjectId,
+    timezoneOffset: number,
+  ): Promise<ChartStatsResponseDto> {
+    return this.reportPaymentService.getRevenueChartStats(
+      query,
+      tenantId,
+      TRACKING_TYPES.PAYMENT_GOODS_PROCESSED,
+      timezoneOffset,
+    );
+  }
   async getGoodsStats(
     query: StatsQueryDto,
     tenantId: Types.ObjectId,
@@ -123,34 +151,6 @@ export class ReportService {
 
   async getPaymentDetailsByDate(query: PaymentDetailQueryDto, tenantId: Types.ObjectId, timezoneOffset: number) {
     return this.reportPaymentService.getPaymentDetailsByDate(query, tenantId, timezoneOffset);
-  }
-
-  // ==================== Payment/Revenue from Goods ====================
-  // Revenue từ goods
-  async getRevenueGoodsStats(
-    query: StatsQueryDto,
-    tenantId: Types.ObjectId,
-    timezoneOffset: number,
-  ): Promise<StatsResponseDto> {
-    return this.reportPaymentService.getRevenueStats(
-      query,
-      tenantId,
-      TRACKING_TYPES.PAYMENT_GOODS_PROCESSED,
-      timezoneOffset,
-    );
-  }
-
-  async getRevenueGoodsChartStats(
-    query: ChartStatsQueryDto,
-    tenantId: Types.ObjectId,
-    timezoneOffset: number,
-  ): Promise<ChartStatsResponseDto> {
-    return this.reportPaymentService.getRevenueChartStats(
-      query,
-      tenantId,
-      TRACKING_TYPES.PAYMENT_GOODS_PROCESSED,
-      timezoneOffset,
-    );
   }
 
   // ==================== Specialized Reports ====================

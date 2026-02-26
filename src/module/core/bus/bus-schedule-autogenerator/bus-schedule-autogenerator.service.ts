@@ -35,9 +35,11 @@ import { BusStationDto } from '../bus-station/dto/bus-station.dto';
 import { BusProvinceDto } from '../bus-province/dto/bus-province.dto';
 import { customAlphabet } from 'nanoid';
 import { BusDto } from '../bus/dto/bus.dto';
-import { toObjectId } from '@/utils/utils';
+import { parseTimeHmToMilliseconds, toObjectId } from '@/utils/utils';
 import { EVENT_STATUS } from '@/common/constants/status.constants';
 import { AutoJobTrackingService } from '../../auto-job-tracking';
+import { SettingsService } from '../../settings/settings.service';
+import { SETTING_CONSTANTS } from '@/common/constants/setting.constants';
 
 @Injectable()
 export class BusScheduleAutogeneratorService {
@@ -57,6 +59,7 @@ export class BusScheduleAutogeneratorService {
     @Inject(forwardRef(() => BusStationService)) private readonly busStationService: BusStationService,
     @Inject(forwardRef(() => BusProvinceService)) private readonly busProvinceService: BusProvinceService,
     @Inject(forwardRef(() => AutoJobTrackingService)) private readonly autoJobTrackingService: AutoJobTrackingService,
+    @Inject(forwardRef(() => SettingsService)) private readonly settingsService: SettingsService,
   ) {}
 
   async create(
@@ -323,6 +326,9 @@ export class BusScheduleAutogeneratorService {
     rootTenantId: Types.ObjectId,
     tenantId: Types.ObjectId,
   ): Promise<boolean> {
+    // Parse the cutoff time setting to milliseconds
+    const cutoffMs = this.getCutoffMilliseconds(tenantId);
+
     const busScheduleAutogenerator: BusScheduleAutogeneratorDto = await this.findOne(_id, tenantId);
 
     if (busScheduleAutogenerator.status !== EVENT_STATUS.SCHEDULED) {
@@ -413,6 +419,17 @@ export class BusScheduleAutogeneratorService {
           createBusScheduleDto.bus = bus;
         }
 
+        // Check if current time exceeds cutoff time before schedule start
+        const now = new Date();
+        const scheduleStartTime = new Date(createBusScheduleDto.startDate);
+        const timeUntilStart = scheduleStartTime.getTime() - now.getTime();
+
+        // Only create schedule if current time is greater than (schedule start time - cutoff)
+        // i.e., time until start must be less than or equal to cutoff, meaning we're past the cutoff window
+        if (timeUntilStart > cutoffMs) {
+          continue; // Skip this schedule, too far in advance
+        }
+
         await this.busScheduleService.create(createBusScheduleDto, rootTenantId, tenantId);
       }
 
@@ -484,5 +501,20 @@ export class BusScheduleAutogeneratorService {
 
   generateBusScheduleNumber(): string {
     return this.nanoid();
+  }
+
+  private getCutoffMilliseconds(tenantId: Types.ObjectId): number {
+    try {
+      const settingValue = this.settingsService.findByName(
+        SETTING_CONSTANTS.BUS_SCHEDULE_AVAILABILITY_CUTOFF,
+        tenantId,
+      ) as unknown as string;
+      if (settingValue) {
+        return parseTimeHmToMilliseconds(settingValue);
+      }
+      return 60 * 60 * 1000; // Default 1 hour
+    } catch {
+      return 60 * 60 * 1000; // Default 1 hour
+    }
   }
 }

@@ -14,6 +14,7 @@ import { BusRouteModule } from '../bus-route/bus-route.module';
 import { BusStationModule } from '../bus-station/bus-station.module';
 import { BusProvinceModule } from '../bus-province/bus-province.module';
 import { AutoJobTrackingModule } from '../../auto-job-tracking';
+import { SettingsModule } from '../../settings/settings.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AutoJobTrackingModule } from '../../auto-job-tracking';
     forwardRef(() => BusStationModule),
     forwardRef(() => BusProvinceModule),
     forwardRef(() => AutoJobTrackingModule),
+    forwardRef(() => SettingsModule),
   ],
   controllers: [BusScheduleAutogeneratorController],
   providers: [BusScheduleAutogeneratorService],
