@@ -251,10 +251,11 @@ export class PaymentMethodService {
   }
 
   async mapImageUrl(paymentMethods: PaymentMethodDto[]): Promise<PaymentMethodDto[]> {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     return await Promise.all(
       paymentMethods.map(async (paymentMethod) => {
         if (paymentMethod.imageId) {
-          paymentMethod.image = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${paymentMethod.imageId.toString()}`;
+          paymentMethod.image = `${process.env.DOMAIN}${port}/file/view/${paymentMethod.imageId.toString()}`;
         }
         return paymentMethod;
       }),

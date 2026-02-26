@@ -166,9 +166,11 @@ export class SeatTypeService {
   }
 
   mapSeatTypeIconUrl(seatTypes: SeatTypeDto[]): SeatTypeDto[] {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+
     return seatTypes.map((seatType) => {
       if (seatType.iconId) {
-        seatType.icon = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${seatType.iconId.toString()}`;
+        seatType.icon = `${process.env.DOMAIN}${port}/file/view/${seatType.iconId.toString()}`;
       }
       return seatType;
     });

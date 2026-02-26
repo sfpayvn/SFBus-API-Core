@@ -246,7 +246,8 @@ export class ContentLayoutService {
     return Promise.all(
       contentLayouts.map(async (block) => {
         if (block.imageId) {
-          block.imageUrl = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${block.imageId.toString()}`;
+          const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+          block.imageUrl = `${process.env.DOMAIN}${port}/file/view/${block.imageId.toString()}`;
         }
         return block;
       }),

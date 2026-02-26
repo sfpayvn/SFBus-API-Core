@@ -209,10 +209,12 @@ export class WidgetBlocksService {
   }
 
   async mapImageUrl(widgetBlocks: WidgetBlockDto[]): Promise<WidgetBlockDto[]> {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
+
     return Promise.all(
       widgetBlocks.map(async (block) => {
         if (block.imageId) {
-          block.imageUrl = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${block.imageId.toString()}`;
+          block.imageUrl = `${process.env.DOMAIN}${port}/file/view/${block.imageId.toString()}`;
         }
         return block;
       }),

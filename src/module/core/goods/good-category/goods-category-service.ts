@@ -189,10 +189,11 @@ export class GoodsCategoryService {
   }
 
   async mapImageUrl(goodsCategories: GoodsCategoryDto[]): Promise<GoodsCategoryDto[]> {
+    const port = process.env.PUBLIC_PORT ? `:${process.env.PUBLIC_PORT}` : '';
     return await Promise.all(
       goodsCategories.map(async (goodsCategory) => {
         if (goodsCategory.iconId) {
-          goodsCategory.icon = `${process.env.DOMAIN}:${process.env.PORT}/file/view/${goodsCategory.iconId.toString()}`;
+          goodsCategory.icon = `${process.env.DOMAIN}${port}/file/view/${goodsCategory.iconId.toString()}`;
         }
         return goodsCategory;
       }),
