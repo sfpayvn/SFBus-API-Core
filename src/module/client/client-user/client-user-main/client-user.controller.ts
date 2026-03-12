@@ -8,6 +8,7 @@ import {
   Post,
   Put,
   Type,
+  UnauthorizedException,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -162,10 +163,13 @@ export class ClientUserController {
   @UseInterceptors(StripFields(['password']))
   @Get('get-current-user')
   async getCurrentUser(@CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
-    const { tenantId, _id: userId } = user;
+    const { tenantId, _id: userId, tokenVersion } = user;
     const foundUser = await this.clientUserService.findById(userId, tenantId);
     if (!foundUser) {
       throw new BadRequestException('User not found.');
+    }
+    if ((foundUser.tokenVersion ?? 0) !== (tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Token has been revoked');
     }
     return plainToInstance(UserDto, foundUser);
   }

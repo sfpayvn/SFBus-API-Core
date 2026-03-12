@@ -75,6 +75,9 @@ export class PosUserDto {
   isTempPassWord: boolean;
 
   @Exclude()
+  tokenVersion?: number;
+
+  @Exclude()
   updatedAt: Date;
 
   @Exclude()

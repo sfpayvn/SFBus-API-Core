@@ -66,6 +66,9 @@ export class UserDto {
   @Expose()
   isLocked: boolean;
 
+  @Expose()
+  tokenVersion?: number;
+
   @Exclude()
   resetTokenVersion: number;
 

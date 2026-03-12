@@ -118,11 +118,13 @@ export class ReportPaymentService {
       comparisonEndDate: customComparisonEndDate,
     } = query;
 
-    // Tự động xác định groupBy dựa vào range
+    // Tự động xác định groupBy dựa vào range (dùng local time để tránh lệch ngày do UTC offset)
+    const _localStart = new Date(startDate.getTime() + timezoneOffset);
+    const _localEnd = new Date(endDate.getTime() + timezoneOffset);
     const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
+      _localStart.getUTCFullYear() === _localEnd.getUTCFullYear() &&
+      _localStart.getUTCMonth() === _localEnd.getUTCMonth() &&
+      _localStart.getUTCDate() === _localEnd.getUTCDate();
 
     const finalGroupBy: 'hour' | 'day' = isSameDay ? 'hour' : 'day';
 
@@ -290,11 +292,13 @@ export class ReportPaymentService {
     if (userId) filter.userId = new Types.ObjectId(userId);
     if (paymentMethodId) filter.paymentMethodId = new Types.ObjectId(paymentMethodId);
 
-    // Tự động xác định groupBy dựa vào range
+    // Tự động xác định groupBy dựa vào range (dùng local time để tránh lệch ngày do UTC offset)
+    const _localStart = new Date(startDate.getTime() + timezoneOffset);
+    const _localEnd = new Date(endDate.getTime() + timezoneOffset);
     const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
+      _localStart.getUTCFullYear() === _localEnd.getUTCFullYear() &&
+      _localStart.getUTCMonth() === _localEnd.getUTCMonth() &&
+      _localStart.getUTCDate() === _localEnd.getUTCDate();
 
     const groupBy: 'hour' | 'day' = isSameDay ? 'hour' : 'day';
 

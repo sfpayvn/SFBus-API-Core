@@ -14,6 +14,7 @@ import { UserModule } from '../../../core/user/user/user.module';
 import { AuthModule } from '@/module/core/auth/auth/auth.module';
 import { AutoJobTrackingModule } from '@/module/core/auto-job-tracking';
 import { AdminBusScheduleAutogeneratorModule } from '../../admin-bus/admin-bus-schedule-autogenerator/admin-bus-schedule-autogenerator.module';
+import { SettingsModule } from '@/module/core/settings/settings.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AdminBusScheduleAutogeneratorModule } from '../../admin-bus/admin-bus-s
     forwardRef(() => AutoJobTrackingModule),
     forwardRef(() => AdminUserMainModule),
     forwardRef(() => AdminTenantModule),
+    forwardRef(() => SettingsModule),
     forwardRef(() => PassportModule),
     forwardRef(() => AdminBusScheduleAutogeneratorModule),
     JwtModule.registerAsync({

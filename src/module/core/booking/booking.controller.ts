@@ -161,12 +161,13 @@ export class BookingController {
   @Roles(ROLE_CONSTANTS.ADMIN)
   @Put('update-booking-item')
   updateBookingItem(
-    @Body(ParseObjectIdPipe) updateBookingItemDto: UpdateBookingItemDto,
+    @Body(ParseObjectIdPipe) updateBookingItemDto: UpdateBookingItemDto | UpdateBookingItemDto[],
     @Param('busScheduleId', ParseObjectIdPipe) busScheduleId: Types.ObjectId,
     @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
   ) {
     const { tenantId } = user;
-    return this.bookingService.updateBookingItem(busScheduleId, updateBookingItemDto, tenantId);
+    const dtos = Array.isArray(updateBookingItemDto) ? updateBookingItemDto : [updateBookingItemDto];
+    return this.bookingService.updateBookingItems(busScheduleId, dtos, tenantId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

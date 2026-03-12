@@ -13,6 +13,7 @@ import { PosTenantService } from '../../pos-tenant/pos-tenant.service';
 import { AutoJobTrackingService } from '@/module/core/auto-job-tracking';
 import { PosBusScheduleAutogeneratorService } from '../../pos-bus/pos-bus-schedule-autogenerator/pos-bus-schedule-autogenerator.service';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+import { SettingsService } from '@/module/core/settings/settings.service';
 
 @Injectable()
 export class PosAuthService {
@@ -23,6 +24,7 @@ export class PosAuthService {
     @Inject(forwardRef(() => AutoJobTrackingService)) private readonly autoJobTrackingService: AutoJobTrackingService,
     @Inject(forwardRef(() => PosBusScheduleAutogeneratorService))
     private readonly posBusScheduleAutogeneratorService: PosBusScheduleAutogeneratorService,
+    @Inject(forwardRef(() => SettingsService)) private readonly settingsService: SettingsService,
     private readonly posAuthRescueService: PosAuthRescueService,
     private jwtService: JwtService,
   ) {}
@@ -50,10 +52,23 @@ export class PosAuthService {
       throw new UnauthorizedException('Tài khoản của bạn không đủ quyền để đăng nhập vào ứng dụng này.');
     }
 
+    const posUserDocument = await this.posUserService.findById(posUser._id, posUser.tenantId);
+    let tokenVersion = posUserDocument?.tokenVersion ?? 0;
+
+    if (tokenVersion === 0) {
+      tokenVersion = 1;
+      await this.posUserService.updateUserField(posUser._id, 'tokenVersion', tokenVersion, posUser.tenantId);
+    }
+
+    // Get current app version from DB settings
+    const appVersion = await this.settingsService.getAppVersion(posUser.tenantId);
+
     const payload = {
       _id: posUser._id.toString(),
       roles: posUser.roles,
       tenantId: posUser.tenantId?.toString(),
+      tokenVersion: tokenVersion,
+      appVersion: appVersion, // Get from DB settings
     };
     return {
       access_token: this.jwtService.sign(payload),
@@ -107,11 +122,42 @@ export class PosAuthService {
     return this.posUserService.updatePassword(userId, posUpdatePasswordUserDto, tenantId);
   }
 
-  async getCurrentUser(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<PosUserDto> {
+  async getCurrentUser(userId: Types.ObjectId, tenantId: Types.ObjectId, tokenVersion?: number): Promise<PosUserDto> {
     const foundUser = await this.posUserService.findById(userId, tenantId);
     if (!foundUser) {
       throw new BadRequestException('User not found.');
     }
+    if ((foundUser.tokenVersion ?? 0) !== (tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
     return plainToInstance(PosUserDto, foundUser);
+  }
+
+  // Logout - tăng tokenVersion để vô hiệu hóa tất cả token hiện tại của user
+  async logout(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<{ ok: boolean }> {
+    const user = await this.posUserService.findById(userId, tenantId);
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Tăng tokenVersion để revoke tất cả token hiện tại
+    const newTokenVersion = (user.tokenVersion ?? 0) + 1;
+    await this.posUserService.updateUserField(userId, 'tokenVersion', newTokenVersion, tenantId);
+
+    return { ok: true };
+  }
+
+  // Admin force logout - tăng tokenVersion của user bất kỳ
+  async forceLogoutUser(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<{ ok: boolean; message?: string }> {
+    const user = await this.posUserService.findById(userId, tenantId);
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Tăng tokenVersion để revoke tất cả token của user
+    const newTokenVersion = (user.tokenVersion ?? 0) + 1;
+    await this.posUserService.updateUserField(userId, 'tokenVersion', newTokenVersion, tenantId);
+
+    return { ok: true, message: `User ${user.name} has been logged out` };
   }
 }

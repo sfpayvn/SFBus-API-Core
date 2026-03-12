@@ -15,6 +15,7 @@ import { AuthModule } from '@/module/core/auth/auth/auth.module';
 import { PosAuthRescueModule } from '../pos-auth-rescue/pos-auth-rescue.module';
 import { AutoJobTrackingModule } from '@/module/core/auto-job-tracking/auto-job-tracking.module';
 import { PosBusScheduleAutogeneratorModule } from '../../pos-bus/pos-bus-schedule-autogenerator/pos-bus-schedule-autogenerator.module';
+import { SettingsModule } from '@/module/core/settings/settings.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { PosBusScheduleAutogeneratorModule } from '../../pos-bus/pos-bus-schedul
     forwardRef(() => AutoJobTrackingModule),
     forwardRef(() => PosUserModule),
     forwardRef(() => PosTenantModule),
+    forwardRef(() => SettingsModule),
     forwardRef(() => PassportModule),
     forwardRef(() => PosAuthRescueModule),
     forwardRef(() => PosBusScheduleAutogeneratorModule),

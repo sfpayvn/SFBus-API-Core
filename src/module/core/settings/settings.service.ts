@@ -84,6 +84,33 @@ export class SettingsService {
   }
 
   /**
+   * Get app version from settings table
+   * Falls back to process.env.APP_VERSION if not found in DB
+   * @param tenantId Optional tenant ID to scope setting
+   * @returns App version string (e.g., "1.0.0", "2.0.0")
+   */
+  async getAppVersion(tenantId?: Types.ObjectId): Promise<string> {
+    try {
+      const query = { name: 'APP_VERSION' };
+      if (tenantId) {
+        query['tenantId'] = tenantId;
+      }
+
+      const setting = await this.settingModel.findOne(query).lean().exec();
+      
+      if (setting?.value) {
+        return setting.value;
+      }
+
+      // Fallback to environment variable
+      return process.env.APP_VERSION || '1.0.0';
+    } catch (error) {
+      console.warn('Failed to get APP_VERSION from DB, using env fallback:', error);
+      return process.env.APP_VERSION || '1.0.0';
+    }
+  }
+
+  /**
    * Update multiple settings in a single request
    */
   async updateMany(updateSettings: UpdateSettingDto[], tenantId: Types.ObjectId): Promise<SettingDto[]> {

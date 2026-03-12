@@ -15,16 +15,19 @@ export class ReportComparisonHelperService {
     endDate: Date,
     compareStartDate?: Date,
     compareEndDate?: Date,
+    timezoneOffset: number = 7 * 60 * 60 * 1000,
   ): {
     calculatedCompareStartDate: Date;
     calculatedCompareEndDate: Date;
     compareText: string;
   } {
     if (compareStartDate && compareEndDate) {
+      // Format date theo local time (UTC + timezoneOffset)
       const formatDate = (date: Date): string => {
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
+        const local = new Date(date.getTime() + timezoneOffset);
+        const day = local.getUTCDate().toString().padStart(2, '0');
+        const month = (local.getUTCMonth() + 1).toString().padStart(2, '0');
+        const year = local.getUTCFullYear();
         return `${day}/${month}/${year}`;
       };
 
@@ -47,12 +50,14 @@ export class ReportComparisonHelperService {
       // Kiểm tra nếu là ngày hôm qua
       const isYesterday = isSameDay && isConsecutive;
 
-      // Kiểm tra nếu là 30 ngày trước (cả tháng)
-      const compareStartDay = compareStartDate.getDate();
-      const compareEndDay = compareEndDate.getDate();
-      const compareMonth = compareEndDate.getMonth();
-      const compareYear = compareEndDate.getFullYear();
-      const lastDayOfMonth = new Date(compareYear, compareMonth + 1, 0).getDate();
+      // Kiểm tra nếu là 30 ngày trước (cả tháng) - dùng local time
+      const localCompareStart = new Date(compareStartDate.getTime() + timezoneOffset);
+      const localCompareEnd = new Date(compareEndDate.getTime() + timezoneOffset);
+      const compareStartDay = localCompareStart.getUTCDate();
+      const compareEndDay = localCompareEnd.getUTCDate();
+      const compareMonth = localCompareEnd.getUTCMonth();
+      const compareYear = localCompareEnd.getUTCFullYear();
+      const lastDayOfMonth = new Date(Date.UTC(compareYear, compareMonth + 1, 0)).getUTCDate();
       const isFullMonth =
         compareStartDay === 1 &&
         compareEndDay === lastDayOfMonth &&

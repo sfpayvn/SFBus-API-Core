@@ -25,7 +25,7 @@ import { Feature } from '@/decorators/feature.decorator';
 import { Roles } from '@/decorators/roles.decorator';
 import { RolesGuard } from '@/guards/roles.guard';
 import { UpdatePasswordUserDto } from '@/module/core/user/user/dto/update-user.dto';
-import { PosUpdateUserDto, PosUpdateUserProfileDto } from './dto/pos-update-user.dto';
+import { PosUpdatePasswordUserDto, PosUpdateUserDto, PosUpdateUserProfileDto } from './dto/pos-update-user.dto';
 import { Types } from 'mongoose';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
 
@@ -56,7 +56,7 @@ export class PosUserController {
   @Post('update-password')
   async updatePassword(
     @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
-    @Body(ParseObjectIdPipe) updatePasswordUserDto: UpdatePasswordUserDto,
+    @Body(ParseObjectIdPipe) updatePasswordUserDto: PosUpdatePasswordUserDto,
   ) {
     const { tenantId, _id } = user;
     const updatedUser = await this.posUserService.updatePassword(_id, updatePasswordUserDto, tenantId);

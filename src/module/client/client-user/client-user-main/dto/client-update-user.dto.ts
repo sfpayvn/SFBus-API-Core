@@ -41,11 +41,19 @@ export class ClientUpdateUserProfileDto {
 }
 
 export class ClientUpdatePasswordUserDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  oldPassword: string;
+  oldPassword?: string;
 
   @IsNotEmpty()
   @IsString()
   password: string;
+
+  @IsOptional()
+  @IsString()
+  otpToken?: string; // OTP token từ verify OTP
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string; // Phone number để check OTP verification từ DB
 }

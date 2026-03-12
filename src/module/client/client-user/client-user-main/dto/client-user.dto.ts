@@ -83,6 +83,9 @@ export class ClientUserDto {
 
   @Exclude()
   __v: number;
+
+  @Exclude()
+  tokenVersion?: number;
 }
 
 export class ClientSearchUsersTypesQuery {

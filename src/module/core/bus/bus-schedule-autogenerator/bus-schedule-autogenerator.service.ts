@@ -327,7 +327,7 @@ export class BusScheduleAutogeneratorService {
     tenantId: Types.ObjectId,
   ): Promise<boolean> {
     // Parse the cutoff time setting to milliseconds
-    const cutoffMs = this.getCutoffMilliseconds(tenantId);
+    const cutoffMs = await this.getCutoffMilliseconds(tenantId);
 
     const busScheduleAutogenerator: BusScheduleAutogeneratorDto = await this.findOne(_id, tenantId);
 
@@ -503,14 +503,14 @@ export class BusScheduleAutogeneratorService {
     return this.nanoid();
   }
 
-  private getCutoffMilliseconds(tenantId: Types.ObjectId): number {
+  private async getCutoffMilliseconds(tenantId: Types.ObjectId): Promise<number> {
     try {
-      const settingValue = this.settingsService.findByName(
+      const settingValue = await this.settingsService.findByName(
         SETTING_CONSTANTS.BUS_SCHEDULE_AVAILABILITY_CUTOFF,
         tenantId,
-      ) as unknown as string;
-      if (settingValue) {
-        return parseTimeHmToMilliseconds(settingValue);
+      );
+      if (settingValue?.value) {
+        return parseTimeHmToMilliseconds(settingValue.value);
       }
       return 60 * 60 * 1000; // Default 1 hour
     } catch {

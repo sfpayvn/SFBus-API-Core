@@ -16,6 +16,7 @@ import { AdminUpdatePasswordUserDto } from '../../admin-user/admin-user-main/dto
 import { AutoJobTrackingService } from '@/module/core/auto-job-tracking';
 import { AdminBusScheduleAutogeneratorService } from '../../admin-bus/admin-bus-schedule-autogenerator/admin-bus-schedule-autogenerator.service';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+import { SettingsService } from '@/module/core/settings/settings.service';
 
 @Injectable()
 export class AdminAuthService {
@@ -26,6 +27,7 @@ export class AdminAuthService {
     @Inject(forwardRef(() => AutoJobTrackingService)) private readonly autoJobTrackingService: AutoJobTrackingService,
     @Inject(forwardRef(() => AdminBusScheduleAutogeneratorService))
     private readonly adminBusScheduleAutogeneratorService: AdminBusScheduleAutogeneratorService,
+    @Inject(forwardRef(() => SettingsService)) private readonly settingsService: SettingsService,
 
     private jwtService: JwtService,
   ) {}
@@ -48,10 +50,23 @@ export class AdminAuthService {
       throw new UnauthorizedException('Tài khoản của bạn không đủ quyền để đăng nhập vào ứng dụng này.');
     }
 
+    const adminUserDocument = await this.adminUserMainService.findById(adminUser._id, adminUser.tenantId);
+    let tokenVersion = adminUserDocument?.tokenVersion ?? 0;
+
+    if (tokenVersion === 0) {
+      tokenVersion = 1;
+      await this.adminUserMainService.updateUserField(adminUser._id, 'tokenVersion', tokenVersion, adminUser.tenantId);
+    }
+
+    // Get current app version from DB settings
+    const appVersion = await this.settingsService.getAppVersion(adminUser.tenantId);
+
     const payload = {
       _id: adminUser._id.toString(),
       roles: adminUser.roles,
       tenantId: adminUser.tenantId?.toString(),
+      tokenVersion: tokenVersion,
+      appVersion: appVersion,
     };
     return {
       access_token: this.jwtService.sign(payload),
@@ -141,10 +156,14 @@ export class AdminAuthService {
     return this.adminUserMainService.updatePassword(userId, adminUpdatePasswordUserDto, tenantId);
   }
 
-  async getCurrentUser(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<AdminUserDto> {
+  async getCurrentUser(userId: Types.ObjectId, tenantId: Types.ObjectId, tokenVersion?: number): Promise<AdminUserDto> {
     const foundUser = await this.adminUserMainService.findById(userId, tenantId);
     if (!foundUser) {
       throw new BadRequestException('User not found.');
+    }
+
+    if ((foundUser.tokenVersion ?? 0) !== (tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Token has been revoked');
     }
 
     const tenant = await this.adminTenantService.findOne(tenantId);

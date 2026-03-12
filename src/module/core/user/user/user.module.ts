@@ -7,12 +7,14 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UserDocument, UserSchema } from './schema/user.schema';
 import { TenantModule } from '../../tenant/tenant.module';
 import { TenantSubscriptionModule } from '../../tenant-subscription/tenant-subscription.module';
+import { AuthRescueModule } from '../../auth/auth-rescue/auth-rescue.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: UserDocument.name, schema: UserSchema }]),
     forwardRef(() => TenantModule),
     forwardRef(() => TenantSubscriptionModule),
+    forwardRef(() => AuthRescueModule),
   ],
   providers: [UserService],
   controllers: [UserController],

@@ -12,6 +12,7 @@ import { DriverAuthRescueService } from '../driver-auth-rescue/driver-auth-rescu
 import { plainToInstance } from 'class-transformer';
 import { DriverUpdatePasswordUserDto } from '../../driver-user/driver-user-main/dto/driver-update-user.dto';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+import { SettingsService } from '@/module/core/settings/settings.service';
 
 @Injectable()
 export class DriverAuthService {
@@ -22,6 +23,7 @@ export class DriverAuthService {
     @Inject(forwardRef(() => DriverAuthRescueService))
     @Inject(forwardRef(() => AuthService))
     private readonly driverAuthRescueService: DriverAuthRescueService,
+    @Inject(forwardRef(() => SettingsService)) private readonly settingsService: SettingsService,
     private jwtService: JwtService,
   ) {}
 
@@ -37,10 +39,23 @@ export class DriverAuthService {
       throw new UnauthorizedException('Tài khoản của bạn không đủ quyền để đăng nhập vào ứng dụng này.');
     }
 
+    const driverUserDocument = await this.driverUserService.findById(driverUser._id, driverUser.tenantId);
+    let tokenVersion = driverUserDocument?.tokenVersion ?? 0;
+
+    if (tokenVersion === 0) {
+      tokenVersion = 1;
+      await this.driverUserService.updateUserField(driverUser._id, 'tokenVersion', tokenVersion, driverUser.tenantId);
+    }
+
+    // Get current app version from DB settings
+    const appVersion = await this.settingsService.getAppVersion(driverUser.tenantId);
+
     const payload = {
       _id: driverUser._id.toString(),
       roles: driverUser.roles,
       tenantId: driverUser.tenantId?.toString(),
+      tokenVersion: tokenVersion,
+      appVersion: appVersion,
     };
     return {
       access_token: this.jwtService.sign(payload),
@@ -94,10 +109,13 @@ export class DriverAuthService {
     return this.driverUserService.updatePassword(userId, driverUpdatePasswordUserDto, tenantId);
   }
 
-  async getCurrentUser(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<DriverUserDto> {
+  async getCurrentUser(userId: Types.ObjectId, tenantId: Types.ObjectId, tokenVersion?: number): Promise<DriverUserDto> {
     const foundUser = await this.driverUserService.findById(userId, tenantId);
     if (!foundUser) {
       throw new BadRequestException('User not found.');
+    }
+    if ((foundUser.tokenVersion ?? 0) !== (tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Token has been revoked');
     }
     return plainToInstance(DriverUserDto, foundUser);
   }

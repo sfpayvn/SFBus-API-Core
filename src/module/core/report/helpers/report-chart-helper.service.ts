@@ -71,26 +71,28 @@ export class ReportChartHelperService {
       dataMap.set(key, item.count);
     });
 
-    // Fill missing dates
+    // Fill missing dates – iterate theo local time để key khớp với MongoDB aggregation (vốn dùng timezoneOffset)
     const labels: string[] = [];
     const data: number[] = [];
-    const currentDate = new Date(startDate);
+    const localStart = new Date(startDate.getTime() + timezoneOffset);
+    const localEnd = new Date(endDate.getTime() + timezoneOffset);
+    const currentDate = new Date(localStart);
 
-    while (currentDate <= endDate) {
+    while (currentDate <= localEnd) {
       let label: string;
       let key: string;
 
       if (finalGroupBy === 'hour') {
-        const hour = currentDate.getHours();
+        const hour = currentDate.getUTCHours();
         label = `${hour.toString().padStart(2, '0')}:00`;
-        key = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}-${currentDate.getDate()}-${hour}`;
-        currentDate.setHours(hour + 1);
+        key = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}-${currentDate.getUTCDate()}-${hour}`;
+        currentDate.setUTCHours(currentDate.getUTCHours() + 1);
       } else {
-        label = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1)
+        label = `${currentDate.getUTCDate().toString().padStart(2, '0')}/${(currentDate.getUTCMonth() + 1)
           .toString()
           .padStart(2, '0')}`;
-        key = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}-${currentDate.getDate()}`;
-        currentDate.setDate(currentDate.getDate() + 1);
+        key = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}-${currentDate.getUTCDate()}`;
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       }
 
       labels.push(label);
@@ -116,36 +118,38 @@ export class ReportChartHelperService {
   ) {
     const groups = new Map<string, any[]>();
 
-    // Tạo tất cả các labels từ startDate đến endDate
-    const currentDate = new Date(startDate);
+    // Tạo tất cả các labels từ startDate đến endDate – iterate theo local time
+    const localStart = new Date(startDate.getTime() + timezoneOffset);
+    const localEnd = new Date(endDate.getTime() + timezoneOffset);
+    const currentDate = new Date(localStart);
     const labels: string[] = [];
 
-    while (currentDate <= endDate) {
+    while (currentDate <= localEnd) {
       let label: string;
       let key: string;
 
       if (groupBy === 'hour') {
-        const hour = currentDate.getHours();
-        label = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1)
+        const hour = currentDate.getUTCHours();
+        label = `${currentDate.getUTCDate().toString().padStart(2, '0')}/${(currentDate.getUTCMonth() + 1)
           .toString()
           .padStart(2, '0')} ${hour.toString().padStart(2, '0')}:00`;
-        key = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}-${currentDate.getDate()}-${hour}`;
-        currentDate.setHours(hour + 1);
+        key = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}-${currentDate.getUTCDate()}-${hour}`;
+        currentDate.setUTCHours(currentDate.getUTCHours() + 1);
       } else if (groupBy === 'day') {
-        label = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1)
+        label = `${currentDate.getUTCDate().toString().padStart(2, '0')}/${(currentDate.getUTCMonth() + 1)
           .toString()
           .padStart(2, '0')}`;
-        key = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}-${currentDate.getDate()}`;
-        currentDate.setDate(currentDate.getDate() + 1);
+        key = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}-${currentDate.getUTCDate()}`;
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
       } else if (groupBy === 'week') {
         const weekNum = this.dateHelper.getWeekNumber(currentDate);
         label = `Tuần ${weekNum}`;
-        key = `${currentDate.getFullYear()}-W${weekNum}`;
-        currentDate.setDate(currentDate.getDate() + 7);
+        key = `${currentDate.getUTCFullYear()}-W${weekNum}`;
+        currentDate.setUTCDate(currentDate.getUTCDate() + 7);
       } else {
-        label = `${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getFullYear()}`;
-        key = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
-        currentDate.setMonth(currentDate.getMonth() + 1);
+        label = `${(currentDate.getUTCMonth() + 1).toString().padStart(2, '0')}/${currentDate.getUTCFullYear()}`;
+        key = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth() + 1}`;
+        currentDate.setUTCMonth(currentDate.getUTCMonth() + 1);
       }
 
       labels.push(label);

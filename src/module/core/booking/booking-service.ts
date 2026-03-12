@@ -306,57 +306,70 @@ export class BookingService {
     return this.toBookingDto(updatedBooking);
   }
 
-  async updateBookingItem(
+  async updateBookingItems(
     busScheduleId: Types.ObjectId,
-    updateBookingItemDto: UpdateBookingItemDto,
+    updateBookingItemDtos: UpdateBookingItemDto[],
     tenantId: Types.ObjectId,
-  ): Promise<BookingItemDto & { _oldData?: any }> {
-    const booking = await this.bookingModel
-      .findOne({
+  ): Promise<(BookingItemDto & { _oldData?: any })[]> {
+    if (!updateBookingItemDtos || updateBookingItemDtos.length === 0) {
+      throw new NotFoundException('No booking items provided to update.');
+    }
+
+    const bookingItemIds = updateBookingItemDtos.map((dto) => dto._id);
+    const dtoMap = new Map(updateBookingItemDtos.map((dto) => [dto._id.toString(), dto]));
+
+    const bookings = await this.bookingModel
+      .find({
         tenantId,
         busScheduleId,
-        'bookingItems._id': updateBookingItemDto._id,
+        'bookingItems._id': { $in: bookingItemIds },
       })
       .exec();
 
-    if (!booking) {
+    if (!bookings || bookings.length === 0) {
       throw new NotFoundException(
-        `Booking with busScheduleId "${busScheduleId}" and booking item with ID "${updateBookingItemDto._id}" not found.`,
+        `Booking with busScheduleId "${busScheduleId}" and the provided booking item IDs not found.`,
       );
     }
 
-    const bookingItemIndex = booking.bookingItems.findIndex(
-      (item) => item._id.toString() === updateBookingItemDto._id?.toString(),
-    );
+    const oldDataMap = new Map<string, any>();
+    const updateSeatStatusList: RequestUpdateSeatStatusDto[] = [];
 
-    if (bookingItemIndex === -1) {
-      throw new NotFoundException(`Booking Item with ID "${updateBookingItemDto._id}" not found in booking.`);
+    for (const booking of bookings) {
+      for (let i = 0; i < booking.bookingItems.length; i++) {
+        const bookingItem = booking.bookingItems[i];
+        const dto = dtoMap.get(bookingItem._id.toString());
+        if (!dto) continue;
+
+        // Store old data before update
+        oldDataMap.set(bookingItem._id.toString(), { ...bookingItem });
+
+        // Apply all fields from dto onto the subdocument
+        Object.assign(booking.bookingItems[i], dto);
+        booking.markModified(`bookingItems.${i}`);
+
+        updateSeatStatusList.push({
+          _id: booking.bookingItems[i].seat._id,
+          bookingId: booking._id as Types.ObjectId,
+          status: dto.seat.status,
+        });
+      }
+
+      await booking.save();
     }
 
-    // Store old data before update
-    const oldData = booking.bookingItems[bookingItemIndex];
+    if (updateSeatStatusList.length === 0) {
+      throw new NotFoundException('No matching booking items found to update.');
+    }
 
-    booking.bookingItems[bookingItemIndex] = Object.assign(
-      booking.bookingItems[bookingItemIndex],
-      updateBookingItemDto,
-    );
+    await this.busScheduleLayoutService.updateSeatStatusByBusSchedule(busScheduleId, updateSeatStatusList, tenantId);
 
-    await booking.save();
-
-    const updateSeatStatus: RequestUpdateSeatStatusDto = {
-      _id: booking.bookingItems[bookingItemIndex].seat._id,
-      bookingId: updateBookingItemDto._id,
-      status: updateBookingItemDto.seat.status,
-    };
-
-    await this.busScheduleLayoutService.updateSeatStatusByBusSchedule(busScheduleId, [updateSeatStatus], tenantId);
-
-    // Query with populate to get updated booking item with complete data
-    const updatedBooking = await this.bookingModel
-      .findOne({
+    // Query with populate to get updated booking items with complete data
+    const updatedBookings = await this.bookingModel
+      .find({
         tenantId,
         busScheduleId,
-        'bookingItems._id': updateBookingItemDto._id,
+        'bookingItems._id': { $in: bookingItemIds },
       })
       .populate('busRoute')
       .populate('busSchedule')
@@ -364,13 +377,20 @@ export class BookingService {
       .lean()
       .exec();
 
-    const updatedBookingItem = updatedBooking?.bookingItems.find(
-      (item: any) => item._id.toString() === updateBookingItemDto._id?.toString(),
-    );
+    const results: (BookingItemDto & { _oldData?: any })[] = [];
 
-    const result: any = plainToInstance(BookingItemDto, updatedBookingItem);
-    result._oldData = oldData;
-    return result;
+    for (const updatedBooking of updatedBookings) {
+      const matchedItems = updatedBooking.bookingItems.filter((item: any) =>
+        dtoMap.has(item._id.toString()),
+      );
+      for (const updatedBookingItem of matchedItems) {
+        const result: any = plainToInstance(BookingItemDto, updatedBookingItem);
+        result._oldData = oldDataMap.get(updatedBookingItem._id.toString());
+        results.push(result);
+      }
+    }
+
+    return results;
   }
 
   async updateBookingItemBoarding(

@@ -6,6 +6,10 @@ import { CurrentUser } from '@/decorators/current-user.decorator';
 import { UserTokenDto } from '@/jwt/dto/user-token.dto';
 import { ParseObjectIdPipe } from '@/common/pipes/parse-objectId.pipe';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import { RolesGuard } from '@/guards/roles.guard';
+import { Roles } from '@/decorators/roles.decorator';
+import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+import { Types } from 'mongoose';
 
 @Controller('auth')
 export class AuthController {
@@ -46,5 +50,22 @@ export class AuthController {
   @Post('reset-password')
   async reset(@Body(ParseObjectIdPipe) resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
+  // Logout - tăng tokenVersion để vô hiệu hóa tất cả token hiện tại
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  @HttpCode(200)
+  async logout(@CurrentUser() user: UserTokenDto) {
+    return this.authService.logout(new Types.ObjectId(user._id), user.tenantId);
+  }
+
+  // Admin force logout - tăng tokenVersion của user bất kỳ
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT)
+  @Post('force-logout/:userId')
+  @HttpCode(200)
+  async forceLogout(@Param('userId', ParseObjectIdPipe) userId: Types.ObjectId, @CurrentUser() user: UserTokenDto) {
+    return this.authService.forceLogoutUser(userId, user.tenantId);
   }
 }

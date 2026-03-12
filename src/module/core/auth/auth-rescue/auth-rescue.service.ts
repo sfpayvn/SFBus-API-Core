@@ -101,4 +101,38 @@ export class AuthRescueService {
     // Trả kết quả cho luồng tiếp theo (issue JWT, cho phép reset password…)
     return true;
   }
+
+  // Check nếu OTP đã được verify thành công trước đó (consumed=true)
+  async checkOtpAlreadyVerified(
+    identifier: string,
+    purpose: string,
+    token: string,
+    tenantId: Types.ObjectId,
+  ): Promise<boolean> {
+    const rec = await this.authRescueModel
+      .findOne({
+        tenantId,
+        identifier,
+        purpose,
+        consumed: true, // Chỉ check những OTP đã verify rồi
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (!rec) {
+      return false; // OTP chưa verify
+    }
+
+    const now = new Date();
+
+    // Check nếu OTP vẫn còn hiệu lực (chưa expire)
+    if (rec.expiresAt <= now) {
+      return false; // OTP đã expire
+    }
+
+    // Kiểm tra token có đúng hay không
+    const isMatch = rec.tokenHash === hashToken(token);
+    return isMatch;
+  }
 }
+

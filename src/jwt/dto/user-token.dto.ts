@@ -7,8 +7,21 @@ export class UserTokenDto {
   _id: Types.ObjectId;
 
   @Expose()
-  role: Types.ObjectId;
+  tenantId: Types.ObjectId;
 
   @Expose()
-  tenantId: Types.ObjectId;
+  @IsOptional()
+  roles?: string[];
+
+  @Expose()
+  @IsOptional()
+  subscriptionId?: string;
+
+  @Expose()
+  @IsOptional()
+  tokenVersion?: number;
+
+  @Expose()
+  @IsOptional()
+  appVersion?: string;
 }

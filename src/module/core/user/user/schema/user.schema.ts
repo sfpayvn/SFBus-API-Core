@@ -15,7 +15,7 @@ export class UserDocument extends Document {
   @Prop({ required: true })
   tenantId: Types.ObjectId;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   phoneNumber: string;
 
   @Prop()
@@ -59,6 +59,12 @@ export class UserDocument extends Document {
 
   @Prop({ default: 0 })
   resetTokenVersion: number;
+
+  @Prop({ default: 0 })
+  tokenVersion: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(UserDocument);
+
+// Create compound unique index: same phoneNumber allowed for different tenants
+UserSchema.index({ tenantId: 1, phoneNumber: 1 }, { unique: true });

@@ -62,11 +62,12 @@ export class ReportScheduleService {
       endDate,
       comparisonStartDate,
       comparisonEndDate,
+      timezoneOffset,
     );
 
     const currentFilter: any = {
       tenantId,
-      type: TRACKING_TYPES.SCHEDULE_CREATED,
+      type: TRACKING_TYPES.SCHEDULE_IN_PROGRESS,
       createdAt: { $gte: startDate, $lte: endDate },
     };
     if (platform) currentFilter.platform = platform;
@@ -74,7 +75,7 @@ export class ReportScheduleService {
 
     const compareFilter: any = {
       tenantId,
-      type: TRACKING_TYPES.SCHEDULE_CREATED,
+      type: TRACKING_TYPES.SCHEDULE_IN_PROGRESS,
       createdAt: {
         $gte: comparisonDates.calculatedCompareStartDate,
         $lte: comparisonDates.calculatedCompareEndDate,
@@ -121,11 +122,13 @@ export class ReportScheduleService {
       comparisonEndDate: customComparisonEndDate,
     } = query;
 
-    // Tự động xác định groupBy dựa vào range
+    // Tự động xác định groupBy dựa vào range (dùng local time để tránh lệch ngày do UTC offset)
+    const _localStart = new Date(startDate.getTime() + timezoneOffset);
+    const _localEnd = new Date(endDate.getTime() + timezoneOffset);
     const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
+      _localStart.getUTCFullYear() === _localEnd.getUTCFullYear() &&
+      _localStart.getUTCMonth() === _localEnd.getUTCMonth() &&
+      _localStart.getUTCDate() === _localEnd.getUTCDate();
 
     const finalGroupBy: 'hour' | 'day' = isSameDay ? 'hour' : 'day';
 
@@ -145,7 +148,7 @@ export class ReportScheduleService {
     // Tạo match filter cho dữ liệu hiện tại
     const currentFilter: any = {
       tenantId,
-      type: TRACKING_TYPES.SCHEDULE_CREATED,
+      type: TRACKING_TYPES.SCHEDULE_IN_PROGRESS,
       createdAt: { $gte: startDate, $lte: endDate },
     };
     if (platform) currentFilter.platform = platform;
@@ -165,7 +168,7 @@ export class ReportScheduleService {
     if (comparisonMode && comparisonStartDate && comparisonEndDate) {
       const compareFilter: any = {
         tenantId,
-        type: TRACKING_TYPES.SCHEDULE_CREATED,
+        type: TRACKING_TYPES.SCHEDULE_IN_PROGRESS,
         createdAt: { $gte: comparisonStartDate, $lte: comparisonEndDate },
       };
       if (platform) compareFilter.platform = platform;
@@ -221,11 +224,13 @@ export class ReportScheduleService {
     if (userId) filter.createdBy = new Types.ObjectId(userId);
     if (busRouteId) filter.busRouteId = new Types.ObjectId(busRouteId);
 
-    // Tự động xác định groupBy dựa vào range
+    // Tự động xác định groupBy dựa vào range (dùng local time để tránh lệch ngày do UTC offset)
+    const _localStart = new Date(startDate.getTime() + timezoneOffset);
+    const _localEnd = new Date(endDate.getTime() + timezoneOffset);
     const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
+      _localStart.getUTCFullYear() === _localEnd.getUTCFullYear() &&
+      _localStart.getUTCMonth() === _localEnd.getUTCMonth() &&
+      _localStart.getUTCDate() === _localEnd.getUTCDate();
 
     const groupBy: 'hour' | 'day' = isSameDay ? 'hour' : 'day';
 

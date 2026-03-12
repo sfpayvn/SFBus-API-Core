@@ -1,10 +1,13 @@
-import { IsOptional, IsDateString, IsString, IsBoolean, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsOptional, IsDate, IsString, IsBoolean, IsEnum } from 'class-validator';
 
 export class PaymentMethodStatsQueryDto {
-  @IsDateString()
+  @IsDate()
+  @Type(() => Date)
   startDate: Date;
 
-  @IsDateString()
+  @IsDate()
+  @Type(() => Date)
   endDate: Date;
 
   @IsOptional()

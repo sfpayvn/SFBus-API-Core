@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   BadRequestException,
+  UnauthorizedException,
   Put,
   UseGuards,
   Request,
@@ -107,10 +108,13 @@ export class UserController {
   @UseInterceptors(StripFields(['password']))
   @Get('get-current-user')
   async getCurrentUser(@CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
-    const { tenantId, _id: userId } = user;
+    const { tenantId, _id: userId, tokenVersion } = user;
     const foundUser = await this.userService.findById(userId, tenantId);
     if (!foundUser) {
       throw new BadRequestException('User not found.');
+    }
+    if ((foundUser.tokenVersion ?? 0) !== (tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Token has been revoked');
     }
     return plainToInstance(UserDto, foundUser);
   }

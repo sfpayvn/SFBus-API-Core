@@ -40,11 +40,19 @@ export class ReportBookingService {
   ): Promise<StatsResponseDto> {
     const { startDate, endDate, comparisonStartDate, comparisonEndDate, platform, userId, comparisonMode } = query;
 
+    const sd = new Date(startDate);
+    const ed = new Date(endDate);
+    console.log('[BookingStats] startDate type:', typeof startDate, '| value:', startDate);
+    console.log('[BookingStats] endDate   type:', typeof endDate,   '| value:', endDate);
+    console.log('[BookingStats] sd instanceof Date:', sd instanceof Date, '| iso:', sd.toISOString());
+    console.log('[BookingStats] ed instanceof Date:', ed instanceof Date, '| iso:', ed.toISOString());
+
     const comparisonDates = this.comparisonHelper.calculateComparisonDates(
       startDate,
       endDate,
       comparisonStartDate,
       comparisonEndDate,
+      timezoneOffset,
     );
 
     const currentFilter: any = {
@@ -67,6 +75,10 @@ export class ReportBookingService {
     if (userId) compareFilter.createdBy = new Types.ObjectId(userId);
 
     // Tính tổng số vé từ metadata.totalTickets
+    console.log('[BookingStats] currentFilter.createdAt:', JSON.stringify(currentFilter.createdAt));
+    const debugDocs = await this.trackingModel.find(currentFilter).select('createdAt metadata.totalTickets').limit(5).lean().exec();
+    console.log('[BookingStats] matched docs (max 5):', JSON.stringify(debugDocs.map(d => ({ createdAt: d.createdAt, tickets: (d as any).metadata?.totalTickets }))));
+
     const currentResult = await this.trackingModel
       .aggregate([
         { $match: currentFilter },
@@ -121,11 +133,13 @@ export class ReportBookingService {
       comparisonEndDate: customComparisonEndDate,
     } = query;
 
-    // Tự động xác định groupBy dựa vào range
+    // Tự động xác định groupBy dựa vào range (dùng local time để tránh lệch ngày do UTC offset)
+    const _localStart = new Date(startDate.getTime() + timezoneOffset);
+    const _localEnd = new Date(endDate.getTime() + timezoneOffset);
     const isSameDay =
-      startDate.getFullYear() === endDate.getFullYear() &&
-      startDate.getMonth() === endDate.getMonth() &&
-      startDate.getDate() === endDate.getDate();
+      _localStart.getUTCFullYear() === _localEnd.getUTCFullYear() &&
+      _localStart.getUTCMonth() === _localEnd.getUTCMonth() &&
+      _localStart.getUTCDate() === _localEnd.getUTCDate();
 
     const finalGroupBy: 'hour' | 'day' = isSameDay ? 'hour' : 'day';
 

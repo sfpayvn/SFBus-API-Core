@@ -83,6 +83,9 @@ export class DriverUserDto {
 
   @Exclude()
   __v: number;
+
+  @Exclude()
+  tokenVersion?: number;
 }
 
 export class DriverSearchUsersTypesQuery {

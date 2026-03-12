@@ -56,47 +56,51 @@ export class DriverBookingService {
     return this.bookingService.findOneBookingsByBookingItemId(bookingId, tenantId);
   }
 
-  async updateBookingItem(
+  async updateBookingItems(
     busScheduleId: Types.ObjectId,
-    driverUpdateBookingItemDto: DriverUpdateBookingItemDto,
+    driverUpdateBookingItemDto: DriverUpdateBookingItemDto[],
     tenantId: Types.ObjectId,
     updatedBy: Types.ObjectId,
   ): Promise<DriverBookingItemDto> {
-    const bookingItem = (await this.bookingService.updateBookingItem(
+    const bookingItems = (await this.bookingService.updateBookingItems(
       busScheduleId,
       driverUpdateBookingItemDto,
       tenantId,
     )) as any;
 
-    // Log tracking for booking item update
     if (updatedBy) {
-      const changes = bookingItem._oldData
-        ? this.prepareChanges(driverUpdateBookingItemDto, bookingItem._oldData)
-        : null;
+      // Log tracking for each booking item updated
+      for (const bookingItem of bookingItems) {
+        const changes = bookingItem._oldData
+          ? this.prepareChanges(driverUpdateBookingItemDto, bookingItem._oldData)
+          : null;
 
-      await this.driverTrackingService.create(
-        {
-          type: TRACKING_TYPES.BOOKING_UPDATED,
-          platform: ROLE_CONSTANTS.DRIVER,
-          metadata: {
-            busScheduleId,
-            bookingItemId: driverUpdateBookingItemDto._id,
-            seatStatus: driverUpdateBookingItemDto.seat?.status,
-            action: 'update_booking_item',
-            oldValue: bookingItem._oldData ? JSON.stringify(bookingItem._oldData) : null,
-            newValue: JSON.stringify(bookingItem),
-            changes: changes ? JSON.stringify(changes) : null,
-            updatedFields: changes ? Object.keys(changes) : [],
+        await this.driverTrackingService.create(
+          {
+            type: TRACKING_TYPES.BOOKING_UPDATED,
+            platform: ROLE_CONSTANTS.DRIVER,
+            metadata: {
+              busScheduleId: busScheduleId,
+              bookingItemIds: driverUpdateBookingItemDto.map((dto) => dto._id),
+              seatStatus: driverUpdateBookingItemDto.map((dto) => dto.seat?.status),
+              action: 'update_booking_item',
+              oldValue: bookingItem._oldData ? JSON.stringify(bookingItem._oldData) : null,
+              newValue: JSON.stringify(bookingItem),
+              changes: changes ? JSON.stringify(changes) : null,
+              updatedFields: changes ? Object.keys(changes) : [],
+            },
+            createdBy: updatedBy,
           },
-          createdBy: updatedBy,
-        },
-        tenantId,
-      );
+          tenantId,
+        );
+      }
     }
 
     // Remove internal _oldData before returning to caller
-    if (bookingItem && bookingItem._oldData) delete bookingItem._oldData;
-    return bookingItem as DriverBookingItemDto;
+    return bookingItems.map((item) => {
+      if (item && item._oldData) delete item._oldData;
+      return item;
+    });
   }
 
   async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<BookingDto> {

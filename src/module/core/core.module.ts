@@ -35,6 +35,7 @@ import { TrackingModule } from './tracking/tracking.module';
 import { AutoJobTrackingModule } from './auto-job-tracking';
 import { WidgetBlocksModule } from './widget-blocks/widget-blocks.module';
 import { DriverModule } from './user/driver/driver.module';
+import { FeeTaxModule } from './fee-tax/fee-tax.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { DriverModule } from './user/driver/driver.module';
     TrackingModule,
     AutoJobTrackingModule,
     WidgetBlocksModule,
+    FeeTaxModule,
   ],
   exports: [
     BusTypeModule,
@@ -112,6 +114,7 @@ import { DriverModule } from './user/driver/driver.module';
     TrackingModule,
     AutoJobTrackingModule,
     WidgetBlocksModule,
+    FeeTaxModule,
   ],
 })
 export class CoreModule {}

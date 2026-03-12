@@ -99,7 +99,7 @@ export class AuthController {
   @UseInterceptors(StripFields(['password']))
   @Get('get-current-user')
   async getCurrentUser(@CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
-    const { tenantId, _id: userId } = user;
-    return this.driverAuthService.getCurrentUser(userId, tenantId);
+    const { tenantId, _id: userId, tokenVersion } = user;
+    return this.driverAuthService.getCurrentUser(userId, tenantId, tokenVersion);
   }
 }

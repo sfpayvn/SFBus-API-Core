@@ -120,7 +120,7 @@ export class PosReportController {
     @TimezoneOffset() timezoneOffset: number,
   ) {
     const { tenantId } = user;
-    return this.reportService.getBookingStats(
+    return this.reportService.getScheduleStats(
       {
         startDate: new Date(query.startDate),
         endDate: new Date(query.endDate),
@@ -143,7 +143,7 @@ export class PosReportController {
     @TimezoneOffset() timezoneOffset: number,
   ) {
     const { tenantId } = user;
-    return this.reportService.getBookingChartStats(
+    return this.reportService.getScheduleChartStats(
       {
         startDate: new Date(query.startDate),
         endDate: new Date(query.endDate),

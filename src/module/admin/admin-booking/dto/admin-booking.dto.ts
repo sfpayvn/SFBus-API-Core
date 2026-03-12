@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import { AdminBusScheduleDto } from '../../admin-bus/admin-bus-schedule/dto/admin-bus-schedule.dto';
 import { AdminPaymentDto } from '../../admin-payment/dto/admin-payment.dto';
 import { AdminPromotionDto } from '../../admin-promotion/dto/admin-promotion.dto';
+import { PromotionDto } from '@/module/core/promotion/dto/promotion.dto';
 
 export class AdminUserInforBookingDto {
   @Expose()
@@ -143,10 +144,31 @@ export class AdminBookingDto {
 
   @Expose()
   @Type(() => String)
+  idempotencyKey: string;
+
+  @Expose()
+  @Type(() => Date)
+  expiresAt?: Date;
+
+  @Expose()
+  @Type(() => String)
+  source: string;
+
+  @Expose()
+  @Type(() => String)
   status: string;
 
-  @Exclude()
+  @Expose()
+  @Type(() => Date)
   createdAt: Date;
+
+  @Expose()
+  @Type(() => Date)
+  startDate: Date;
+
+  @Expose()
+  @Type(() => Date)
+  endDate: Date;
 
   @Exclude()
   updatedAt: Date;

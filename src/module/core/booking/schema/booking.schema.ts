@@ -125,6 +125,38 @@ export class BookingDocument extends Document {
   @Prop({ required: true })
   afterDiscountTotalPrice: number;
 
+  /**
+   * Fee breakdown (array of applied fees)
+   */
+  @Prop({ type: Array, default: [] })
+  appliedFees: Array<{
+    name: string;
+    amount: number;
+    feeType: string;
+  }>;
+
+  /**
+   * Tax breakdown (array of applied taxes)
+   */
+  @Prop({ type: Array, default: [] })
+  appliedTaxes: Array<{
+    name: string;
+    amount: number;
+    feeType: string;
+  }>;
+
+  /**
+   * Total fees amount
+   */
+  @Prop({ required: true, default: 0 })
+  totalFeeAmount: number;
+
+  /**
+   * Total tax amount
+   */
+  @Prop({ required: true, default: 0 })
+  totalTaxAmount: number;
+
   @Prop({ required: true })
   paymentTime?: Date; // Thêm trường thời gian thanh toán
 

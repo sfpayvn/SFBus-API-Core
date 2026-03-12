@@ -30,14 +30,14 @@ export class DriverBookingController {
     ROLE_CONSTANTS.POS,
   )
   @UpdateAuditFields({ updateCreatedBy: false, updateUpdatedBy: true })
-  @Put('update-booking-item/:busScheduleId')
-  updateBookingItem(
-    @Body(ParseObjectIdPipe) driverUpdateBookingItemDto: DriverUpdateBookingItemDto,
+  @Put('update-booking-items/:busScheduleId')
+  updateBookingItems(
+    @Body(ParseObjectIdPipe) driverUpdateBookingItemDto: DriverUpdateBookingItemDto[],
     @Param('busScheduleId', ParseObjectIdPipe) busScheduleId: Types.ObjectId,
     @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
   ) {
     const { tenantId, _id } = user;
-    return this.driverBookingService.updateBookingItem(busScheduleId, driverUpdateBookingItemDto, tenantId, _id);
+    return this.driverBookingService.updateBookingItems(busScheduleId, driverUpdateBookingItemDto, tenantId, _id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

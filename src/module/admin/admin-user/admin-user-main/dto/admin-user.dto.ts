@@ -83,6 +83,9 @@ export class AdminUserDto {
 
   @Exclude()
   __v: number;
+
+  @Expose()
+  tokenVersion?: number;
 }
 
 export class AdminSearchUserQuerySortFilter {

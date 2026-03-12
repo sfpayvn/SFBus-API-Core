@@ -11,12 +11,14 @@ import { JwtStrategy } from '@/jwt/jwt.strategy';
 import { UserModule } from '../../user/user/user.module';
 import { AuthRescueModule } from '../auth-rescue/auth-rescue.module';
 import { TenantModule } from '../../tenant/tenant.module';
+import { SettingsModule } from '../../settings/settings.module';
 
 @Module({
   imports: [
     forwardRef(() => UserModule),
     forwardRef(() => AuthRescueModule),
     forwardRef(() => TenantModule),
+    forwardRef(() => SettingsModule),
     forwardRef(() => PassportModule),
 
     JwtModule.registerAsync({

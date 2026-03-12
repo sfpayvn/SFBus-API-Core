@@ -42,7 +42,7 @@ export class PosUpdateUserProfileDto {
 }
 
 export class PosUpdatePasswordUserDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   oldPassword: string;
 

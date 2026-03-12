@@ -35,6 +35,7 @@ import { AdminTrackingModule } from './admin-tracking/admin-tracking.module';
 import { AdminDriverModule } from './admin-user/admin-driver/admin-driver.module';
 import { AdminWidgetBlocksModule } from './admin-widget-blocks/admin-widget-blocks.module';
 import { AdminContentLayoutModule } from './admin-content-layout/admin-content-layout.module';
+import { AdminFeeTaxModule } from './admin-fee-tax/admin-fee-tax.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AdminContentLayoutModule } from './admin-content-layout/admin-content-l
     AdminBookingModule,
     AdminPaymentModule,
     AdminPaymentMethodModule,
+    AdminFeeTaxModule,
     AdminNotificationModule,
     AdminFileFolderModule,
     AdminCounterModule,
@@ -94,6 +96,7 @@ import { AdminContentLayoutModule } from './admin-content-layout/admin-content-l
     AdminBookingModule,
     AdminPaymentModule,
     AdminPaymentMethodModule,
+    AdminFeeTaxModule,
     AdminNotificationModule,
     AdminFileFolderModule,
     AdminCounterModule,

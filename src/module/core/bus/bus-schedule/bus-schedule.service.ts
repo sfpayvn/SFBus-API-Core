@@ -34,6 +34,9 @@ import { SettingsService } from '../../settings/settings.service';
 import { SETTING_CONSTANTS } from '@/common/constants/setting.constants';
 import { DriverService } from '../../user/driver/driver.service';
 import { EVENT_STATUS } from '@/common/constants/status.constants';
+import { TrackingService } from '../../tracking/tracking.service';
+import { TRACKING_TYPES } from '../../tracking/constants/tracking-types';
+import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
 
 @Injectable()
 export class BusScheduleService {
@@ -49,6 +52,7 @@ export class BusScheduleService {
     private readonly busLayoutTemplateService: BusLayoutTemplateService,
     @Inject(forwardRef(() => DriverService)) private readonly driverService: DriverService,
     @Inject(forwardRef(() => SettingsService)) private readonly settingsService: SettingsService,
+    @Inject(forwardRef(() => TrackingService)) private readonly trackingService: TrackingService,
   ) {}
 
   async create(
@@ -377,7 +381,7 @@ export class BusScheduleService {
    * Cập nhật cả in-memory objects và database
    * @returns Mảng schedules đã được update status
    */
-  async updateScheduleStatus(schedules: any[]): Promise<any[]> {
+  async updateScheduleStatus(schedules: any[], tenantId: Types.ObjectId): Promise<any[]> {
     const updates: Array<{ _id: Types.ObjectId; newStatus: string }> = [];
     const currentDate = getCurrentDate();
 
@@ -410,6 +414,19 @@ export class BusScheduleService {
         if (newStatus !== schedule.status && schedule && schedule._id) {
           // Cập nhật in-memory object
           schedule.status = newStatus;
+          if (newStatus === EVENT_STATUS.IN_PROGRESS) {
+            await this.trackingService.create(
+              {
+                type: TRACKING_TYPES.SCHEDULE_IN_PROGRESS,
+                platform: ROLE_CONSTANTS.ADMIN,
+                metadata: {
+                  schedule,
+                },
+                createdBy: tenantId,
+              },
+              tenantId,
+            );
+          }
           // Thêm vào danh sách batch update
           updates.push({ _id: schedule._id, newStatus });
         }
@@ -880,7 +897,7 @@ export class BusScheduleService {
    */
   async enrichSchedules(schedules: any[], tenantId: Types.ObjectId): Promise<any[]> {
     // Cập nhật status cho tất cả schedules (batch update) - trả về schedules đã update
-    const updatedSchedules = await this.updateScheduleStatus(schedules);
+    const updatedSchedules = await this.updateScheduleStatus(schedules, tenantId);
 
     schedules = updatedSchedules;
 

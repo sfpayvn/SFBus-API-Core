@@ -1,21 +1,27 @@
-import { IsOptional, IsDateString, IsString, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsOptional, IsDate, IsString, IsBoolean } from 'class-validator';
 
 export class StatsQueryDto {
   @IsOptional()
   @IsString()
   userId?: string;
 
-  @IsDateString()
+  @IsDate()
+  @Type(() => Date)
   startDate: Date;
 
-  @IsDateString()
+  @IsDate()
+  @Type(() => Date)
   endDate: Date;
 
   @IsOptional()
-  @IsDateString()
+  @IsDate()
+  @Type(() => Date)
   comparisonStartDate?: Date;
+
   @IsOptional()
-  @IsDateString()
+  @IsDate()
+  @Type(() => Date)
   comparisonEndDate?: Date;
 
   @IsOptional()

@@ -13,6 +13,7 @@ import { ClientTenantModule } from '../../client-tenant/client-tenant.module';
 import { UserModule } from '../../../core/user/user/user.module';
 import { AuthModule } from '@/module/core/auth/auth/auth.module';
 import { ClientAuthRescueModule } from '../client-auth-rescue/client-auth-rescue.module';
+import { SettingsModule } from '@/module/core/settings/settings.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ClientAuthRescueModule } from '../client-auth-rescue/client-auth-rescue
     forwardRef(() => UserModule),
     forwardRef(() => ClientUserModule),
     forwardRef(() => ClientTenantModule),
+    forwardRef(() => SettingsModule),
     forwardRef(() => PassportModule),
     forwardRef(() => ClientAuthRescueModule),
     JwtModule.registerAsync({

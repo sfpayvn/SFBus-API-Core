@@ -12,6 +12,7 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { AuthRescueService } from '../auth-rescue/auth-rescue.service';
 import { plainToInstance } from 'class-transformer';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
     @Inject(forwardRef(() => UserService)) private readonly userService: UserService,
     @Inject(forwardRef(() => TenantService)) private readonly tenantService: TenantService,
     @Inject(forwardRef(() => AuthRescueService)) private readonly authRescueService: AuthRescueService,
+    @Inject(forwardRef(() => SettingsService)) private readonly settingsService: SettingsService,
     private jwtService: JwtService,
     @Inject('RESET_JWT') private readonly resetJwt: JwtService, // reset token (mới)
   ) {}
@@ -49,11 +51,19 @@ export class AuthService {
 
   // Đăng nhập và trả về JWT token
   async login(user: UserDto) {
+    const userDocument = await this.userService.findById(user._id, user.tenantId);
+    const tokenVersion = userDocument?.tokenVersion ?? 0;
+
+    // Get current app version from DB settings
+    const appVersion = await this.settingsService.getAppVersion(user.tenantId);
+
     const payload = {
       _id: user._id.toString(),
       roles: user.roles,
       tenantId: user.tenantId?.toString(),
       subscriptionId: user.tenant?.subscriptionId?.toString(),
+      tokenVersion: tokenVersion,
+      appVersion: appVersion,  // Get from DB settings
     };
 
     return {
@@ -150,5 +160,33 @@ export class AuthService {
     await this.userService.updateUserField(user._id, 'resetTokenVersion', user.resetTokenVersion, user.tenantId);
     await this.userService.updateUserField(user._id, 'password', hashedPassword, user.tenantId);
     return { ok: true };
+  }
+
+  // Logout - tăng tokenVersion để vô hiệu hóa tất cả token hiện tại của user
+  async logout(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<{ ok: boolean }> {
+    const user = await this.userService.findById(userId, tenantId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Tăng tokenVersion để revoke tất cả token hiện tại
+    const newTokenVersion = (user.tokenVersion ?? 0) + 1;
+    await this.userService.updateUserField(userId, 'tokenVersion', newTokenVersion, tenantId);
+
+    return { ok: true };
+  }
+
+  // Admin force logout - tăng tokenVersion của user bất kỳ
+  async forceLogoutUser(userId: Types.ObjectId, tenantId: Types.ObjectId): Promise<{ ok: boolean; message?: string }> {
+    const user = await this.userService.findById(userId, tenantId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Tăng tokenVersion để revoke tất cả token của user
+    const newTokenVersion = (user.tokenVersion ?? 0) + 1;
+    await this.userService.updateUserField(userId, 'tokenVersion', newTokenVersion, tenantId);
+
+    return { ok: true, message: `User ${user.name} has been logged out` };
   }
 }

@@ -13,6 +13,7 @@ export const TRACKING_TYPES = {
 
   // Schedule actions
   SCHEDULE_CREATED: 'schedule_created',
+  SCHEDULE_IN_PROGRESS: 'schedule_in_progress',
   SCHEDULE_UPDATED: 'schedule_updated',
   SCHEDULE_CANCELLED: 'schedule_cancelled',
 

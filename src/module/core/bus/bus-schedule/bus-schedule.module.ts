@@ -8,6 +8,7 @@ import { BusScheduleLayoutModule } from '../bus-schedule-layout/bus-schedule-lay
 import { BusLayoutTemplateModule } from '../bus-layout-template/bus-layout-template.module';
 import { SettingsModule } from '../../settings/settings.module';
 import { DriverModule } from '@/module/core/user/driver/driver.module';
+import { TrackingModule } from '../../tracking/tracking.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { DriverModule } from '@/module/core/user/driver/driver.module';
     forwardRef(() => BusModule),
     forwardRef(() => DriverModule),
     forwardRef(() => SettingsModule),
+    forwardRef(() => TrackingModule),
   ],
   controllers: [BusScheduleController],
   providers: [BusScheduleService],

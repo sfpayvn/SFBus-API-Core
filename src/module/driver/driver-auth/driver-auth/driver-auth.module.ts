@@ -13,6 +13,7 @@ import { DriverTenantModule } from '../../driver-tenant/driver-tenant.module';
 import { AuthModule } from '@/module/core/auth/auth/auth.module';
 import { UserModule } from '@/module/core/user/user/user.module';
 import { DriverAuthRescueModule } from '../driver-auth-rescue/driver-auth-rescue.module';
+import { SettingsModule } from '@/module/core/settings/settings.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { DriverAuthRescueModule } from '../driver-auth-rescue/driver-auth-rescue
     forwardRef(() => DriverAuthRescueModule),
     forwardRef(() => DriverUserModule),
     forwardRef(() => DriverTenantModule),
+    forwardRef(() => SettingsModule),
     forwardRef(() => PassportModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
