@@ -39,8 +39,8 @@ export class AdminBusProvinceService {
     return this.busProvinceService.findAll(tenantIds);
   }
 
-  async findAvailable(tenantId: Types.ObjectId): Promise<AdminBusProvinceDto[]> {
-    return this.busProvinceService.findAvailable(tenantId);
+  async findAvailable(tenantIds: Types.ObjectId[]): Promise<AdminBusProvinceDto[]> {
+    return this.busProvinceService.findAvailable(tenantIds);
   }
 
   async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<AdminBusProvinceDto> {

@@ -43,8 +43,8 @@ export class PosBusStationController {
   @UseInterceptors(MarkDefaultTenant())
   @Get('find-all-available')
   findAllAvailable(@TenantScope() tenantScope: TenantScopeResult) {
-    const { tenantId } = tenantScope;
-    return this.PosBusStationService.findAllAvailable(tenantId);
+    const { tenantIds } = tenantScope;
+    return this.PosBusStationService.findAllAvailable(tenantIds);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

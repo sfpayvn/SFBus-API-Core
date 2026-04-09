@@ -13,6 +13,8 @@ import { UserService } from '../user/user/user.service';
 import { DEFAULT_TENANT_USER_ROLES } from '@/common/constants/roles.constants';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { RegisterSubscriptionDto } from '../tenant-subscription/dto/tenant-subscription.dto';
+import { SettingsService } from '../settings/settings.service';
+import { CreateSettingDto } from '../settings/dto/create-setting.dto';
 
 @Injectable()
 export class TenantService {
@@ -27,6 +29,8 @@ export class TenantService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => SubscriptionService))
     private readonly subscriptionService: SubscriptionService,
+    @Inject(forwardRef(() => SettingsService))
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(createTenantDto: CreateTenantDto): Promise<TenantDto> {
@@ -66,6 +70,31 @@ export class TenantService {
         // Log user creation error but continue with tenant creation
         console.error(`Failed to create user for tenant: ${userError.message}`);
       }
+
+      const settingsToCreate: CreateSettingDto[] = [
+        {
+          name: 'organizationName',
+          value: createTenantDto.name,
+          groupName: 'organization',
+        },
+        {
+          name: 'address',
+          value: createTenantDto.address || '',
+          groupName: 'organization',
+        },
+        {
+          name: 'phone',
+          value: createTenantDto.phoneNumber || '',
+          groupName: 'organization',
+        },
+        {
+          name: 'email',
+          value: createTenantDto.email || '',
+          groupName: 'organization',
+        },
+      ];
+
+      this.settingsService.createsOrUpdates(settingsToCreate, tenantId);
 
       const dto = plainToInstance(TenantDto, saved.toObject());
       const [result] = await this.mapLogoUrl([dto]);
@@ -288,9 +317,7 @@ export class TenantService {
 
     return tenants.map((tenant) => ({
       ...tenant,
-      logo: tenant.logoId
-        ? `${process.env.DOMAIN}${port}/file/view/${tenant.logoId.toString()}`
-        : undefined,
+      logo: tenant.logoId ? `${process.env.DOMAIN}${port}/file/view/${tenant.logoId.toString()}` : undefined,
     }));
   }
 }

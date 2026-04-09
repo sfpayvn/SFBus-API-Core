@@ -23,8 +23,8 @@ export class PosBusStationService {
     return this.busStationService.findAll(tenantIds);
   }
 
-  async findAllAvailable(tenantId: Types.ObjectId): Promise<PosBusStationDto[]> {
-    return this.busStationService.findAllAvailable(tenantId);
+  async findAllAvailable(tenantIds: Types.ObjectId[]): Promise<PosBusStationDto[]> {
+    return this.busStationService.findAllAvailable(tenantIds);
   }
 
   async findOffices(tenantIds: Types.ObjectId[]): Promise<PosBusStationDto[]> {

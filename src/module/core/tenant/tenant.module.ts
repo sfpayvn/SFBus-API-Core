@@ -7,6 +7,7 @@ import { TenantSubscriptionModule } from '../tenant-subscription/tenant-subscrip
 import { FileModule } from '../file/file/file.module';
 import { UserModule } from '../user/user/user.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     forwardRef(() => FileModule),
     forwardRef(() => UserModule),
     forwardRef(() => SubscriptionModule),
+    forwardRef(() => SettingsModule),
   ],
   controllers: [TenantController],
   providers: [TenantService],

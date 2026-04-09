@@ -74,8 +74,8 @@ export class AdminBusProvinceController {
   @UseInterceptors(MarkDefaultTenant())
   @Get('find-all-available')
   findAllAvailable(@TenantScope() tenantScope: TenantScopeResult) {
-    const { tenantId } = tenantScope;
-    return this.adminBusProvinceService.findAvailable(tenantId);
+    const { tenantIds } = tenantScope;
+    return this.adminBusProvinceService.findAvailable(tenantIds);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

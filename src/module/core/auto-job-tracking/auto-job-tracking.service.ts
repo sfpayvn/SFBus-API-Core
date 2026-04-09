@@ -14,7 +14,13 @@ export class AutoJobTrackingService {
   constructor(
     @InjectModel('AutoJobTracking')
     private readonly trackingModel: Model<AutoJobTrackingDocument>,
-  ) {}
+  ) {
+    // Ensure unique index exists
+    this.trackingModel.collection.createIndex(
+      { tenantId: 1, jobName: 1, runDate: 1 },
+      { unique: true }
+    ).catch(err => this.logger.warn('Index creation warning:', err.message));
+  }
 
   /**
    * Try to run auto schedule job for today
@@ -70,7 +76,7 @@ export class AutoJobTrackingService {
         this.logger.debug(`Job '${jobName}' already ran today for tenant ${tenantId}`);
         return false;
       }
-    } catch (err) {
+    } catch (err: any) {
       // Duplicate key error (code 11000) means another request beat us to it
       if (err.code === 11000) {
         this.logger.debug(`Job '${jobName}' race condition handled for tenant ${tenantId}`);

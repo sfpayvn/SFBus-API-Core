@@ -39,8 +39,8 @@ export class BusProvinceService {
     return busProvinces.map((busProvince) => plainToInstance(BusProvinceDto, busProvince));
   }
 
-  async findAvailable(tenantId: Types.ObjectId): Promise<BusProvinceDto[]> {
-    const busProvinces = await this.busProvinceModel.find({ tenantId, isActive: true }).lean().exec();
+  async findAvailable(tenantIds: Types.ObjectId[]): Promise<BusProvinceDto[]> {
+    const busProvinces = await this.busProvinceModel.find({ tenantId: { $in: tenantIds }, isActive: true }).lean().exec();
     return busProvinces.map((busProvince) => plainToInstance(BusProvinceDto, busProvince));
   }
 

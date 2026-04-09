@@ -50,8 +50,8 @@ export class AdminBusStationService {
     return this.busStationService.findAll(tenantIds);
   }
 
-  async findAllAvailable(tenantId: Types.ObjectId): Promise<AdminBusStationDto[]> {
-    return this.busStationService.findAllAvailable(tenantId);
+  async findAllAvailable(tenantIds: Types.ObjectId[]): Promise<AdminBusStationDto[]> {
+    return this.busStationService.findAllAvailable(tenantIds);
   }
   async findAllUnAssignedAvailable(tenantId: Types.ObjectId): Promise<AdminBusStationDto[]> {
     return this.busStationService.findAllUnAssignedAvailable(tenantId);

@@ -97,7 +97,7 @@ export class SettingsService {
       }
 
       const setting = await this.settingModel.findOne(query).lean().exec();
-      
+
       if (setting?.value) {
         return setting.value;
       }
@@ -172,8 +172,52 @@ export class SettingsService {
 
     const tenantKeys = new Set(tenantSettings.map((s) => s.name));
     const mergedSettings = [...tenantSettings, ...rootSettings.filter((s) => !tenantKeys.has(s.name))];
-    
+
     return mergedSettings.map((s) => plainToInstance(SettingDto, s));
+  }
+
+  async createsOrUpdates(createSettingDto: CreateSettingDto[], tenantId: Types.ObjectId): Promise<SettingDto[]> {
+    if (!Array.isArray(createSettingDto) || createSettingDto.length === 0) {
+      throw new BadRequestException('No settings provided for createsOrUpdates.');
+    }
+
+    // Normalize by name - last item wins if duplicate names provided
+    const map = new Map<string, CreateSettingDto>();
+    for (const s of createSettingDto) {
+      map.set(s.name, s);
+    }
+
+    // Ensure tenantId is properly converted to ObjectId
+    const normalizedTenantId = new Types.ObjectId(tenantId);
+
+    const ops: any[] = [];
+    for (const [name, dto] of map.entries()) {
+      const setFields: any = { value: dto.value };
+      if (dto.description !== undefined) setFields.description = dto.description;
+      if ((dto as any).groupName !== undefined) setFields.groupName = (dto as any).groupName;
+
+      ops.push({
+        updateOne: {
+          filter: { name, tenantId: normalizedTenantId },
+          update: {
+            $set: setFields,
+            $setOnInsert: { name, tenantId: normalizedTenantId },
+          },
+          upsert: true,
+        },
+      });
+    }
+
+    if (ops.length) {
+      await this.settingModel.bulkWrite(ops);
+    }
+
+    const names = Array.from(map.keys());
+    const updated = await this.settingModel
+      .find({ name: { $in: names }, tenantId: normalizedTenantId })
+      .lean()
+      .exec();
+    return updated.map((s) => plainToInstance(SettingDto, s));
   }
 
   /**

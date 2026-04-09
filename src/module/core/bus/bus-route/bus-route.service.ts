@@ -18,7 +18,7 @@ export class BusRouteService {
   async create(createBusRouteDto: CreateBusRouteDto, tenantId: Types.ObjectId): Promise<BusRouteDto> {
     const createdBusroute = new this.busRouteModel({ ...createBusRouteDto, tenantId });
     const savedBusRoute = await createdBusroute.save();
-    return plainToInstance(BusRouteDto, savedBusRoute);
+    return plainToInstance(BusRouteDto, savedBusRoute.toObject());
   }
 
   async update(updateBusRouteDto: UpdateBusRouteDto, tenantId: Types.ObjectId): Promise<BusRouteDto> {

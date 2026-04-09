@@ -85,7 +85,7 @@ export class BusScheduleAutogeneratorService {
     if (busScheduleAutogenerator.status === EVENT_STATUS.SCHEDULED) {
       const shouldRun = await this.autoJobTrackingService.tryRunToday(tenantId, jobName, timezoneOffset);
       if (shouldRun) {
-        this.runCreateBusSchedule(busScheduleAutogenerator._id, rootTenantId, tenantId);
+        this.runCreateBusSchedule(busScheduleAutogenerator._id, rootTenantId, tenantId, timezoneOffset);
       }
     }
 
@@ -133,7 +133,7 @@ export class BusScheduleAutogeneratorService {
       if (result.status === EVENT_STATUS.SCHEDULED) {
         const shouldRun = await this.autoJobTrackingService.tryRunToday(tenantId, jobName, timezoneOffset);
         if (shouldRun) {
-          this.runCreateBusSchedule(result._id, rootTenantId, tenantId);
+          this.runCreateBusSchedule(result._id, rootTenantId, tenantId, timezoneOffset);
         }
       }
     } catch (err) {
@@ -280,44 +280,57 @@ export class BusScheduleAutogeneratorService {
         this.isRunDay(busScheduleAutogenerator, todayDate) &&
         busScheduleAutogenerator.status === EVENT_STATUS.SCHEDULED
       ) {
-        await this.runCreateBusSchedule(busScheduleAutogenerator._id, rootTenantObjectId, tenantId);
+        await this.runCreateBusSchedule(busScheduleAutogenerator._id, rootTenantObjectId, tenantId, timezoneOffset);
       }
     }
   }
 
   isRunDay = (busScheduleAutoGenerator: BusScheduleAutogeneratorDto, date: Date): boolean => {
-    // Adjust startDate by subtracting preGenerateDays
-    const adjustedStartDate = new Date(busScheduleAutoGenerator.startDate);
-    adjustedStartDate.setDate(adjustedStartDate.getDate() + busScheduleAutoGenerator.preGenerateDays);
-
-    // Lấy ngày hôm nay, loại bỏ thời gian (giờ, phút, giây)
+    // Get today's date without time component
     const todayWithoutTime = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-    // Lấy phần ngày của adjustedStartDate (không tính giờ, phút, giây)
+    // Check if job has ended
+    if (busScheduleAutoGenerator.endDate) {
+      const endDate = new Date(busScheduleAutoGenerator.endDate);
+      const endDateWithoutTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+      if (todayWithoutTime.getTime() > endDateWithoutTime.getTime()) {
+        return false; // Job has ended
+      }
+    }
+
+    // Calculate when job should start generating schedules (startDate - preGenerateDays)
+    const startDate = new Date(busScheduleAutoGenerator.startDate);
+    const adjustedStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    adjustedStartDate.setDate(adjustedStartDate.getDate() - busScheduleAutoGenerator.preGenerateDays);
+
+    // Get adjusted start date without time component
     const start = new Date(adjustedStartDate.getFullYear(), adjustedStartDate.getMonth(), adjustedStartDate.getDate());
 
-    // Tính chênh lệch thời gian tính bằng mili-giây giữa hôm nay và ngày bắt đầu
+    // Calculate days difference from adjusted start date
     const diffMs = todayWithoutTime.getTime() - start.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    // Nếu lặp theo tuần, tính số tuần đã trôi qua
+    // Check if current day is before the generation should start
+    if (diffDays < 0) {
+      return false;
+    }
+
+    // Check repeat pattern
     if (busScheduleAutoGenerator.repeatType === 'weeks') {
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)); // Tính chênh lệch số ngày
-      const diffWeeks = Math.floor(diffDays / 7); // Số tuần đã trôi qua
+      const diffWeeks = Math.floor(diffDays / 7);
 
-      // Kiểm tra điều kiện tuần chạy
-      const isWeekValid = diffWeeks >= 0 && diffWeeks % busScheduleAutoGenerator.repeatInterval === 0;
+      // Check if this is a valid week to run
+      const isWeekValid = diffWeeks % busScheduleAutoGenerator.repeatInterval === 0;
 
-      // Kiểm tra điều kiện ngày chạy
+      // Check if today is a valid day of the week to run
       const isDayValid = busScheduleAutoGenerator.repeatDaysPerWeek.includes(
         todayWithoutTime.toLocaleString('en-US', { weekday: 'short' }),
       );
 
-      // Kết quả cuối cùng
       return isWeekValid && isDayValid;
     } else {
-      // Nếu lặp theo ngày, so sánh dựa trên số ngày
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)); // Số ngày chênh lệch
-      return diffDays >= 0 && diffDays % busScheduleAutoGenerator.repeatInterval === 0;
+      // Daily repeat: check if it's a valid interval
+      return diffDays % busScheduleAutoGenerator.repeatInterval === 0;
     }
   };
 
@@ -325,9 +338,15 @@ export class BusScheduleAutogeneratorService {
     _id: Types.ObjectId,
     rootTenantId: Types.ObjectId,
     tenantId: Types.ObjectId,
+    timezoneOffset: number = 25200000, // Default to UTC+7
   ): Promise<boolean> {
     // Parse the cutoff time setting to milliseconds
     const cutoffMs = await this.getCutoffMilliseconds(tenantId);
+
+    // Calculate today's date in tenant's timezone
+    const now = new Date();
+    const localTime = new Date(now.getTime() + timezoneOffset);
+    const todayDate = new Date(localTime.getFullYear(), localTime.getMonth(), localTime.getDate());
 
     const busScheduleAutogenerator: BusScheduleAutogeneratorDto = await this.findOne(_id, tenantId);
 
@@ -367,7 +386,7 @@ export class BusScheduleAutogeneratorService {
 
       const busProvinces = await this.busProvinceService.findAll([rootTenantId, tenantId]);
       if (!busProvinces) {
-        throw new NotFoundException(`Không tìm thấy tỉnh xe buýt nào`);
+        throw new NotFoundException(`Không tìm thấy tỉnh xe buý nào`);
       }
 
       const busRoute: CreateBusRouteScheduleDto = new CreateBusRouteScheduleDto();
@@ -375,10 +394,20 @@ export class BusScheduleAutogeneratorService {
       busRoute.distance = busScheduleTemplate.busRoute.distance;
       busRoute.distanceTime = busScheduleTemplate.busRoute.distanceTime;
 
+      // Calculate the date for which schedules should be generated (today + preGenerateDays)
+      const scheduleDate = new Date(todayDate.getTime());
+      scheduleDate.setDate(scheduleDate.getDate() + busScheduleAutogenerator.preGenerateDays);
+
       for (const specificTimeSlot of busScheduleAutogenerator.specificTimeSlots) {
         busRoute.breakPoints = [];
         for (const breakPoint of busScheduleTemplate.busRoute.breakPoints) {
-          const newBreakPoint = await this.createBreakPoint(breakPoint, busStations, busProvinces, specificTimeSlot);
+          const newBreakPoint = await this.createBreakPoint(
+            breakPoint,
+            busStations,
+            busProvinces,
+            specificTimeSlot,
+            scheduleDate,
+          );
           busRoute.breakPoints.push(newBreakPoint);
         }
 
@@ -426,7 +455,7 @@ export class BusScheduleAutogeneratorService {
 
         // Only create schedule if current time is greater than (schedule start time - cutoff)
         // i.e., time until start must be less than or equal to cutoff, meaning we're past the cutoff window
-        if (timeUntilStart > cutoffMs) {
+        if (timeUntilStart < cutoffMs) {
           continue; // Skip this schedule, too far in advance
         }
 
@@ -443,6 +472,7 @@ export class BusScheduleAutogeneratorService {
     busStations: BusStationDto[],
     busProvinces: BusProvinceDto[],
     specificTimeSlot: SpecificTimeSlotDto,
+    scheduleDate?: Date,
   ) {
     const busStation = (await busStations.find(
       (busStation: BusStationDto) => busStation._id.toString() === breakPoint.busStationId.toString(),
@@ -453,7 +483,7 @@ export class BusScheduleAutogeneratorService {
       (busProvince: BusProvinceDto) => busProvince._id.toString() === provinceId.toString(),
     )) as unknown as CreateBusScheduleBusProvinceDto;
 
-    const timeSchedule = this.calculateTimeSchedule(breakPoint.timeOffset, specificTimeSlot);
+    const timeSchedule = this.calculateTimeSchedule(breakPoint.timeOffset, specificTimeSlot, scheduleDate);
 
     const busRouteBreakPoint: CreateBusScheduleBreakPointsTimeDto = new CreateBusScheduleBreakPointsTimeDto();
     busRouteBreakPoint.busStationId = breakPoint.busStationId;
@@ -467,8 +497,10 @@ export class BusScheduleAutogeneratorService {
     return busRouteBreakPoint;
   }
 
-  calculateTimeSchedule(offsetTime: string, specificTimeSlot: SpecificTimeSlotDto): string {
-    const currentDate = new Date(); // Thời gian hiện tại
+  calculateTimeSchedule(offsetTime: string, specificTimeSlot: SpecificTimeSlotDto, scheduleDate?: Date): string {
+    // Use provided scheduleDate (today + preGenerateDays) or current date
+    const baseDate = scheduleDate || new Date();
+    const currentDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
     const [hours, minutes, seconds] = specificTimeSlot.timeSlot.split(':').map(Number);
     currentDate.setHours(hours);
     currentDate.setMinutes(minutes);

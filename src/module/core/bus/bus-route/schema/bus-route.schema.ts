@@ -5,12 +5,6 @@ import { Types, Document } from 'mongoose';
 export class BusRouteBreakPointsDocument {
   @Prop({ type: Types.ObjectId, required: true })
   busStationId: Types.ObjectId;
-
-  @Prop()
-  detailAddress: string;
-
-  @Prop({ required: true })
-  location: string;
 }
 
 export const BusRouteBreakPointsSchema = SchemaFactory.createForClass(BusRouteBreakPointsDocument);

@@ -86,8 +86,8 @@ export class AdminBusStationController {
   @UseInterceptors(MarkDefaultTenant())
   @Get('find-all-available')
   findAllAvailable(@TenantScope() tenantScope: TenantScopeResult) {
-    const { tenantId } = tenantScope;
-    return this.adminBusStationService.findAllAvailable(tenantId);
+    const { tenantIds } = tenantScope;
+    return this.adminBusStationService.findAllAvailable(tenantIds);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

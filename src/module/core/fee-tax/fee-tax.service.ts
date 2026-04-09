@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { FeeTax, FeeTaxDocument } from './schema/fee-tax.schema';
 import { CreateFeeTaxDto, UpdateFeeTaxDto, FeeTaxDto } from './dto/fee-tax.dto';
 import { plainToInstance } from 'class-transformer';
+import { getFirstValue, processFilterValue } from '@/utils/utils';
 
 @Injectable()
 export class FeeTaxService {
@@ -251,6 +252,101 @@ export class FeeTaxService {
   }
 
   /**
+   * Search fee/tax with pagination
+   */
+  async search(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: { key: string; value: 'ascend' | 'desc' },
+    filters: { key: string; value: string | string[] | Types.ObjectId | Types.ObjectId[] }[],
+    tenantId: Types.ObjectId,
+  ): Promise<{
+    pageIdx: number;
+    feeTaxes: FeeTaxDto[];
+    totalPage: number;
+    totalItem: number;
+  }> {
+    const pipeline = await this.buildQuerySearchFeeTaxPaging(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
+
+    const items = await this.feeTaxModel.aggregate(pipeline).exec();
+
+    const countOnlyPipeline = await this.buildQuerySearchFeeTaxPaging(0, 0, keyword, sortBy, filters, tenantId);
+    const countResult = await this.feeTaxModel.aggregate([...countOnlyPipeline, { $count: 'total' }]).exec();
+    const totalItem = countResult.length > 0 ? countResult[0].total : 0;
+
+    const feeTaxes = items.map((item) => this.toDto(item));
+
+    return {
+      pageIdx,
+      feeTaxes,
+      totalPage: Math.ceil(totalItem / pageSize),
+      totalItem,
+    };
+  }
+
+  /**
+   * Build query for search with pagination
+   */
+  async buildQuerySearchFeeTaxPaging(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: { key: string; value: 'ascend' | 'desc' },
+    filters: { key: string; value: string | string[] | Types.ObjectId | Types.ObjectId[] }[],
+    tenantId: Types.ObjectId,
+  ) {
+    const skip = pageIdx ? (pageIdx - 1) * pageSize : 0;
+
+    const pipeline: any = [];
+    const matchConditions: any[] = [{ tenantId }];
+
+    // Search by keyword
+    if (keyword) {
+      matchConditions.push({
+        $or: [
+          { name: { $regex: keyword, $options: 'i' } },
+          { description: { $regex: keyword, $options: 'i' } },
+        ],
+      });
+    }
+
+    // Process filters
+    if (Array.isArray(filters)) {
+      for (const { key, value } of filters) {
+        if (!key || value == null || (Array.isArray(value) && value.length === 0)) continue;
+
+        matchConditions.push(processFilterValue(key, value));
+      }
+    }
+
+    // Add match conditions
+    pipeline.push({
+      $match: { $and: matchConditions },
+    });
+
+    // Add sorting
+    if (sortBy?.key) {
+      const sortDirection = sortBy.value === 'ascend' ? 1 : -1;
+      pipeline.push({
+        $sort: { [sortBy.key]: sortDirection },
+      });
+    } else {
+      // Default sort by priority
+      pipeline.push({
+        $sort: { priority: 1 },
+      });
+    }
+
+    // Add pagination
+    if (pageSize > 0) {
+      pipeline.push({ $skip: skip }, { $limit: pageSize });
+    }
+
+    return pipeline;
+  }
+
+  /**
    * Convert FeeTaxDocument to DTO
    */
   private toDto(doc: FeeTaxDocument): FeeTaxDto {
@@ -274,4 +370,6 @@ export class FeeTaxService {
       updatedBy: doc.updatedBy?.toString(),
     });
   }
+
+
 }

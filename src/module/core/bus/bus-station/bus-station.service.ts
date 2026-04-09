@@ -79,9 +79,9 @@ export class BusStationService {
     return result;
   }
 
-  async findAllAvailable(tenantId: Types.ObjectId): Promise<BusStationDto[]> {
+  async findAllAvailable(tenantIds: Types.ObjectId[]): Promise<BusStationDto[]> {
     const busStations = await this.busStationModel
-      .find({ tenantId, provinceId: { $ne: null }, isActive: true })
+      .find({ tenantId: { $in: tenantIds }, provinceId: { $ne: null }, isActive: true })
       .lean()
       .exec();
     let result = busStations.map((busStation) => plainToInstance(BusStationDto, busStation));
@@ -89,8 +89,7 @@ export class BusStationService {
     return result;
   }
 
-
-   async findAllUnAssignedAvailable(tenantId: Types.ObjectId): Promise<BusStationDto[]> {
+  async findAllUnAssignedAvailable(tenantId: Types.ObjectId): Promise<BusStationDto[]> {
     const busStations = await this.busStationModel
       .find({ tenantId, provinceId: { $eq: null }, isActive: true })
       .lean()

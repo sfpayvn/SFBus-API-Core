@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AdminFeeTaxService } from './admin-fee-tax-service';
-import { CreateFeeTaxDto, UpdateFeeTaxDto, FeeTaxDto } from '@/module/core/fee-tax/dto/fee-tax.dto';
+import { CreateFeeTaxDto, UpdateFeeTaxDto, FeeTaxDto, AdminSearchFeeTaxPagingQuery, AdminSearchFeeTaxPagingRes } from './dto/admin-fee-tax.dto';
 import { JwtAuthGuard } from '@/guards/jwt-auth.guard';
 import { RolesGuard } from '@/guards/roles.guard';
 import { Roles } from '@/decorators/roles.decorator';
@@ -56,6 +56,28 @@ export class AdminFeeTaxController {
     finalTotal: number;
   }> {
     return this.adminFeeTaxService.calculateFeesAndTaxes(user.tenantId, params);
+  }
+
+  /**
+   * Search fee/tax with pagination
+   */
+  @Post('search')
+  async searchFeeTaxPaging(
+    @Body(ParseObjectIdPipe) query: AdminSearchFeeTaxPagingQuery,
+    @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
+  ): Promise<AdminSearchFeeTaxPagingRes> {
+    const {
+      pageIdx = 0,
+      pageSize = 0,
+      keyword = '',
+      sortBy = {
+        key: 'priority',
+        value: 'ascend',
+      },
+      filters = [],
+    } = query;
+    const { tenantId } = user;
+    return this.adminFeeTaxService.search(+pageIdx, +pageSize, keyword, sortBy, filters, tenantId);
   }
 
   /**

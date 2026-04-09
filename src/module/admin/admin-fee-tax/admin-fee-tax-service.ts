@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FeeTaxService } from '@/module/core/fee-tax/fee-tax.service';
 import { CreateFeeTaxDto, UpdateFeeTaxDto, FeeTaxDto } from '@/module/core/fee-tax/dto/fee-tax.dto';
+import { AdminSearchFeeTaxPagingRes, FeeTaxSortFilter } from './dto/admin-fee-tax.dto';
 import { Types } from 'mongoose';
 
 @Injectable()
@@ -86,5 +87,19 @@ export class AdminFeeTaxService {
     finalTotal: number;
   }> {
     return this.feeTaxService.calculateFeesAndTaxes(tenantId.toString(), params);
+  }
+
+  /**
+   * Search fee/tax with pagination
+   */
+  async search(
+    pageIdx: number,
+    pageSize: number,
+    keyword: string,
+    sortBy: FeeTaxSortFilter,
+    filters: FeeTaxSortFilter[],
+    tenantId: Types.ObjectId,
+  ): Promise<AdminSearchFeeTaxPagingRes> {
+    return this.feeTaxService.search(pageIdx, pageSize, keyword, sortBy, filters, tenantId) as Promise<AdminSearchFeeTaxPagingRes>;
   }
 }
