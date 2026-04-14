@@ -25,7 +25,7 @@ export class ClientBusRouteService {
     return this.busRouteService.findAll(tenantIds);
   }
 
-  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<ClientBusRouteDto> {
+  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<ClientBusRouteDto | null> {
     return this.busRouteService.findOne(id, tenantIds);
   }
 

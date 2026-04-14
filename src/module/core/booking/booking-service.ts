@@ -806,7 +806,10 @@ export class BookingService {
         },
       );
 
-      booking.busSchedule = await this.busScheduleService.findOne(new Types.ObjectId(booking.busScheduleId), tenantId);
+      const busSchedule = await this.busScheduleService.findOne(new Types.ObjectId(booking.busScheduleId), tenantId);
+      if (busSchedule) {
+        booking.busSchedule = busSchedule;
+      }
       bookings.push(booking);
     }
 

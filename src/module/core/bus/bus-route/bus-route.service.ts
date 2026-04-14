@@ -47,13 +47,13 @@ export class BusRouteService {
     return result;
   }
 
-  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<BusRouteDto> {
+  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<BusRouteDto | null> {
     const busRouteModel = await this.busRouteModel
       .findOne({ _id: id, tenantId: { $in: tenantIds } })
       .populate('breakPoints.busStation')
       .lean()
       .exec();
-    if (!busRouteModel) throw new NotFoundException('Bus route not found');
+    if (!busRouteModel) return null;
     const busRoute = plainToInstance(BusRouteDto, busRouteModel);
     return busRoute;
   }

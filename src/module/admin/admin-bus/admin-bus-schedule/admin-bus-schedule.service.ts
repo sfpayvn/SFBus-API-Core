@@ -37,7 +37,7 @@ export class AdminBusScheduleService {
     return this.busScheduleService.findAll(tenantId);
   }
 
-  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<AdminBusScheduleDto> {
+  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<AdminBusScheduleDto | null> {
     return this.busScheduleService.findOne(id, tenantId);
   }
 

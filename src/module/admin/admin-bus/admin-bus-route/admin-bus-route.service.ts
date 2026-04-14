@@ -30,7 +30,7 @@ export class AdminBusRouteService {
     return this.busRouteService.findAll(tenantIds);
   }
 
-  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<AdminBusRouteDto> {
+  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<AdminBusRouteDto | null> {
     return this.busRouteService.findOne(id, tenantIds);
   }
 

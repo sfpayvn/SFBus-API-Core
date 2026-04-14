@@ -19,7 +19,7 @@ export class DriverBusScheduleService {
     return this.busScheduleService.findAll(tenantId);
   }
 
-  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<DriverBusScheduleDto> {
+  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<DriverBusScheduleDto | null> {
     return this.busScheduleService.findOne(id, tenantId);
   }
 

@@ -28,7 +28,7 @@ export class PosBusScheduleService {
     return this.busScheduleService.update(updateBusScheduleDto, tenantId);
   }
 
-  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<PosBusScheduleDto> {
+  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<PosBusScheduleDto | null> {
     return this.busScheduleService.findOne(id, tenantId);
   }
 

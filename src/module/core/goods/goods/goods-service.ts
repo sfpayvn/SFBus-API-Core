@@ -18,6 +18,8 @@ import { BusRouteDocument } from '../../bus/bus-route/schema/bus-route.schema';
 import { GoodsCategoryDocument } from '../good-category/schema/goods.-categoryschema';
 import { send } from 'process';
 import { BusScheduleService } from '../../bus/bus-schedule/bus-schedule.service';
+import { BusScheduleDto } from '../../bus/bus-schedule/dto/bus-schedule.dto';
+import { BusRouteDto } from '../../bus/bus-route/dto/bus-route.dto';
 import { GoodsGateway } from './good.gateway';
 import { FileService } from '../../file/file/file.service';
 import { PaymentService } from '../../payment/payment-service';
@@ -25,6 +27,7 @@ import { GOODS_STATUS } from '@/common/constants/status.constants';
 import { getFirstValue, processFilterValue, toObjectId } from '@/utils/utils';
 import { GoodsCategoryDto } from '../good-category/dto/goods-category.dto';
 import { GOODS_EVENT_TYPES } from '../types/goods.types';
+import { BusRouteService } from '../../bus/bus-route/bus-route.service';
 
 @Injectable()
 export class GoodsService {
@@ -36,6 +39,8 @@ export class GoodsService {
     @InjectModel(GoodsDocument.name) private readonly goodsModel: Model<GoodsDocument>,
     @Inject(forwardRef(() => BusScheduleService))
     private readonly busScheduleService: BusScheduleService,
+    @Inject(forwardRef(() => BusRouteService))
+    private readonly busRouteService: BusRouteService,
     @Inject(forwardRef(() => GoodsCategoryService))
     private readonly goodsCategoryService: GoodsCategoryService,
     @Inject(forwardRef(() => FileService))
@@ -756,10 +761,15 @@ export class GoodsService {
 
       const filteredGoods = await Promise.all(
         goods.map(async (goods) => {
-          if (!goods.busScheduleId) {
-            return goods;
+          let busSchedule: BusScheduleDto | null = null;
+          if (goods.busScheduleId) {
+            busSchedule = await this.busScheduleService.findOne(goods.busScheduleId, tenantId);
           }
-          const busSchedule = await this.busScheduleService.findOne(goods.busScheduleId, tenantId);
+          let busRoute: BusRouteDto | null = null;
+          if (goods.busRouteId) {
+            const rootTenantIdObjectId = toObjectId(this.rootTenantId);
+            busRoute = await this.busRouteService.findOne(goods.busRouteId, [rootTenantIdObjectId, tenantId]);
+          }
           const categories = await this.goodsCategoryService.findByIds(goods.categoriesIds || [], [
             tenantId,
             toObjectId(this.rootTenantId),
@@ -769,6 +779,7 @@ export class GoodsService {
           return plainToInstance(GoodsDto, {
             ...goods,
             busSchedule,
+            busRoute,
           });
         }),
       );
@@ -956,9 +967,7 @@ export class GoodsService {
     return await Promise.all(
       goods.map(async (good: GoodsDto) => {
         if (good.imageIds) {
-          good.images = good.imageIds.map(
-            (id) => `${process.env.DOMAIN}${port}/file/view/${id.toString()}`,
-          );
+          good.images = good.imageIds.map((id) => `${process.env.DOMAIN}${port}/file/view/${id.toString()}`);
         }
         await this.mapGoodsCategoryImageUrl(good.categories);
         return good;

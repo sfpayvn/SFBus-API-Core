@@ -20,7 +20,7 @@ export class PosBusRouteService {
     return this.busRouteService.findAll(tenantIds);
   }
 
-  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<PosBusRouteDto> {
+  async findOne(id: Types.ObjectId, tenantIds: Types.ObjectId[]): Promise<PosBusRouteDto | null> {
     return this.busRouteService.findOne(id, tenantIds);
   }
 

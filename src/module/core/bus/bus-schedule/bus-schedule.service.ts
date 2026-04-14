@@ -165,11 +165,11 @@ export class BusScheduleService {
     return enrichSchedules;
   }
 
-  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<BusScheduleDto> {
+  async findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<BusScheduleDto | null> {
     const busScheduleModel = await this.busScheduleModel.findOne({ _id: id, tenantId }).lean().exec();
 
     if (!busScheduleModel) {
-      throw new NotFoundException(`Không tìm thấy lịch trình xe buýt với ID ${id}`);
+      return null;
     }
 
     const busSchedule = plainToInstance(BusScheduleDto, busScheduleModel);
@@ -401,7 +401,7 @@ export class BusScheduleService {
         const cutoffMs = this.getCutoffMilliseconds(schedule.tenantId);
 
         let newStatus = schedule.status;
-        if (endDate < currentDate) {
+        if (startDate < currentDate) {
           newStatus = EVENT_STATUS.OVERDUE;
         } else if (
           startDate < new Date(currentDate.getTime() + cutoffMs) && // Within cutoff time
@@ -656,7 +656,7 @@ export class BusScheduleService {
     // 1. Tìm theo keyword
     if (keyword) {
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: keyword, $options: 'i' } }, { busScheduleNumber: { $regex: keyword, $options: 'i' } }],
       });
     }
 
