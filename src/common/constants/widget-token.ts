@@ -1,4 +1,0 @@
-export const WIDGET_TOKEN = {
-  TOP_5_ROUTES: 'TOP_5_ROUTES',
-  TOP_5_BLOGS: 'TOP_5_BLOGS',
-};
