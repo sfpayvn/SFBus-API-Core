@@ -1,0 +1,20 @@
+export declare const TRACKING_TYPES: {
+    readonly BOOKING_CREATED: "booking_created";
+    readonly BOOKING_UPDATED: "booking_updated";
+    readonly BOOKING_BULK_UPDATED: "booking_bulk_updated";
+    readonly BOOKING_CANCELLED: "booking_cancelled";
+    readonly SEAT_BOARDING: "seat_boarding";
+    readonly PAYMENT_BOOKING_PROCESSED: "payment_booking_processed";
+    readonly PAYMENT_GOODS_PROCESSED: "payment_goods_processed";
+    readonly SCHEDULE_CREATED: "schedule_created";
+    readonly SCHEDULE_IN_PROGRESS: "schedule_in_progress";
+    readonly SCHEDULE_UPDATED: "schedule_updated";
+    readonly SCHEDULE_CANCELLED: "schedule_cancelled";
+    readonly GOODS_CREATED: "goods_created";
+    readonly GOODS_UPDATED: "goods_updated";
+    readonly GOODS_CANCELLED: "goods_cancelled";
+    readonly GOODS_DELETED: "goods_deleted";
+    readonly GOODS_BOARDING: "goods_boarding";
+    readonly GOODS_ASSIGNMENT: "goods_assignment";
+};
+export type TrackingType = (typeof TRACKING_TYPES)[keyof typeof TRACKING_TYPES];

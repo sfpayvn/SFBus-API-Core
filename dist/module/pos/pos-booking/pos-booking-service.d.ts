@@ -1,0 +1,30 @@
+import { Model, Types } from 'mongoose';
+import { PosBookingGateway } from './pos-booking.gateway';
+import { BookingDocument } from '@/module/core/booking/schema/booking.schema';
+import { BookingService } from '@/module/core/booking/booking-service';
+import { PosBookingDto, PosBookingSortFilter, PosSearchBookingPagingRes } from './dto/pos-booking.dto';
+import { PosPaymentService } from '../pos-payment/pos-payment-service';
+import { BookingDto } from '@/module/core/booking/dto/booking.dto';
+import { PosCreateBookingDto } from './dto/pos-create-booking.dto';
+import { PosUpdateBookingDto } from './dto/pos-update-booking.dto';
+import { PosTrackingService } from '../pos-tracking/pos-tracking.service';
+export declare class PosBookingService {
+    private readonly bookingModel;
+    private readonly bookingService;
+    private readonly PosPaymentService;
+    private readonly posTrackingService;
+    private PosBookingGateway;
+    private alphabet;
+    private nanoid;
+    constructor(bookingModel: Model<BookingDocument>, bookingService: BookingService, PosPaymentService: PosPaymentService, posTrackingService: PosTrackingService, PosBookingGateway: PosBookingGateway);
+    watchChanges(): Promise<void>;
+    create(posCreateBookingDto: PosCreateBookingDto[], tenantId: Types.ObjectId, createdBy: Types.ObjectId, idempotencyKey: string): Promise<PosBookingDto[]>;
+    cancelBookings(busScheduleId: Types.ObjectId, bookingIds: Types.ObjectId[], tenantId: Types.ObjectId, updatedBy: Types.ObjectId): Promise<boolean>;
+    update(posUpdateBookingDto: PosUpdateBookingDto, tenantId: Types.ObjectId, updatedBy: Types.ObjectId): Promise<PosBookingDto>;
+    updates(posUpdateBookingsDto: PosUpdateBookingDto[], tenantId: Types.ObjectId, updatedBy: Types.ObjectId): Promise<PosBookingDto[]>;
+    findAllByScheduleId(busScheduleId: Types.ObjectId, tenantId: Types.ObjectId): Promise<PosBookingDto[]>;
+    findOne(id: Types.ObjectId, tenantId: Types.ObjectId): Promise<BookingDto>;
+    findAllByPaymentNumber(paymentNumber: string, tenantId: Types.ObjectId): Promise<PosBookingDto[]>;
+    search(pageIdx: number, pageSize: number, keyword: string, sortBy: PosBookingSortFilter, filters: PosBookingSortFilter[], tenantId: Types.ObjectId): Promise<PosSearchBookingPagingRes>;
+    private prepareChanges;
+}

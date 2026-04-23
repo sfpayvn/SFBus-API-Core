@@ -1,0 +1,11 @@
+import { Types } from 'mongoose';
+export declare function isValidDate(date: Date): boolean;
+export declare function getFirstValue(value: string | string[] | Types.ObjectId | Types.ObjectId[]): string;
+export declare function generateNumberAlphabet(): string;
+export declare function toObjectId(id: any | undefined): Types.ObjectId;
+export declare function bufferToObjectIdHex(bufLike: any): string | null;
+export declare function idToString(x: any): string | null;
+export declare function eqObjectId(a: any, b: any): boolean;
+export declare function processFilterValue(key: string, value: string | string[] | Types.ObjectId | Types.ObjectId[]): any;
+export declare function getCurrentDate(timezone?: string): Date;
+export declare function parseTimeHmToMilliseconds(value: string): number;
