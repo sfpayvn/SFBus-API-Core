@@ -1,0 +1,58 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AdminUserClientService = void 0;
+const common_1 = require("@nestjs/common");
+const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
+const user_schema_1 = require("../../../core/user/user/schema/user.schema");
+const user_client_service_1 = require("../../../core/user/user-client/user_client.service");
+let AdminUserClientService = class AdminUserClientService {
+    constructor(userModel, userClientService) {
+        this.userModel = userModel;
+        this.userClientService = userClientService;
+    }
+    async create(adminCreateUserDto, tenantId) {
+        return this.userClientService.create(adminCreateUserDto, tenantId);
+    }
+    async update(adminUpdateUserProfileDto, tenantId) {
+        const result = await this.userClientService.update(adminUpdateUserProfileDto, tenantId);
+        return result != null;
+    }
+    async updateUserField(userId, fieldName, value, tenantId) {
+        return this.userClientService.updateUserField(userId, fieldName, value, tenantId);
+    }
+    async updatePassword(userId, adminUpdatePasswordUserDto, tenantId) {
+        const result = this.userClientService.updatePassword(userId, adminUpdatePasswordUserDto, tenantId);
+        return result != null;
+    }
+    async setPasswordAsTemp(userId, tempPassword, tenantId) {
+        return this.userClientService.setPasswordAsTemp(userId, tempPassword, tenantId);
+    }
+    delete(id) {
+        return this.userClientService.delete(id);
+    }
+    async search(pageIdx, pageSize, keyword, sortBy, filters, tenantId) {
+        return this.userClientService.search(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
+    }
+};
+exports.AdminUserClientService = AdminUserClientService;
+exports.AdminUserClientService = AdminUserClientService = __decorate([
+    (0, common_1.Injectable)(),
+    __param(0, (0, mongoose_1.InjectModel)(user_schema_1.UserDocument.name)),
+    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => user_client_service_1.UserClientService))),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        user_client_service_1.UserClientService])
+], AdminUserClientService);
+//# sourceMappingURL=admin-user-client.service.js.map

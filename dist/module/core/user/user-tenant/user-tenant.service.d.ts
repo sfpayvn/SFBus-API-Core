@@ -1,0 +1,34 @@
+import { Model, Types } from 'mongoose';
+import { TenantService } from '../../tenant/tenant.service';
+import { TenantSubscriptionService } from '../../tenant-subscription/tenant-subscription.service';
+import { CreateUserDto } from '../user/dto/create-user.dto';
+import { UpdateUserProfileDto, UpdatePasswordUserDto } from '../user/dto/update-user.dto';
+import { UserDto, SearchUserQuerySortFilter, SearchUsersRes } from '../user/dto/user.dto';
+import { UserDocument } from '../user/schema/user.schema';
+export declare class UserTenantService {
+    private userModel;
+    private readonly tenantService;
+    private readonly tenantSubscriptionService;
+    constructor(userModel: Model<UserDocument>, tenantService: TenantService, tenantSubscriptionService: TenantSubscriptionService);
+    create(createUserDto: CreateUserDto): Promise<UserDto>;
+    update(updateUserDto: UpdateUserProfileDto): Promise<UserDto>;
+    updateUserProfile(updateUserDto: UpdateUserProfileDto): Promise<UserDto>;
+    updateUserField(userId: Types.ObjectId, fieldName: string, value: any): Promise<boolean>;
+    updatePassword(userId: Types.ObjectId, updatePasswordUserDto: UpdatePasswordUserDto): Promise<UserDto>;
+    setPasswordAsTemp(userId: Types.ObjectId, tempPassword: string): Promise<boolean>;
+    markIdentifierAsVerified(userId: Types.ObjectId, identifier: string): Promise<UserDto>;
+    delete(id: Types.ObjectId): Promise<boolean>;
+    validateUser(phoneNumber: string, password: string, tenantCode: string): Promise<UserDto | null>;
+    findById(userId: Types.ObjectId): Promise<UserDto | null>;
+    findByIds(userIds: Types.ObjectId[]): Promise<UserDto[] | null>;
+    findByPhoneNumber(phoneNumber: string): Promise<UserDto | null>;
+    findAll(): Promise<UserDto[]>;
+    findAllByRole(role: string): Promise<UserDto[]>;
+    findOne(id: string): Promise<UserDto>;
+    findByPhone(phoneNumber: string): Promise<UserDto>;
+    findByEmail(email: string): Promise<UserDto>;
+    findOneByRole(role: string): Promise<UserDto>;
+    search(pageIdx: number, pageSize: number, keyword: string, sortBy: SearchUserQuerySortFilter, filters: SearchUserQuerySortFilter[]): Promise<SearchUsersRes>;
+    buildQuerySearch(pageIdx: number, pageSize: number, keyword: string, sortBy: SearchUserQuerySortFilter, filters: SearchUserQuerySortFilter[]): Promise<any>;
+    mapUserAvatarUrl(users: UserDto[]): Promise<UserDto[]>;
+}

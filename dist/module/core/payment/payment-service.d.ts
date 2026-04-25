@@ -1,0 +1,30 @@
+import { Model, Types } from 'mongoose';
+import { PaymentDocument } from './schema/payment.schema';
+import { PaymentDto, RequestPaymentDto } from './dto/payment.dto';
+import { CreatePaymentDto } from './dto/create-payment.dto';
+import { RequestUpdatePaymentByRedeemPromotionDto, UpdatePaymentDto } from './dto/update-payment.dto';
+import { BookingService } from '../booking/booking-service';
+import { BusScheduleLayoutService } from '../bus/bus-schedule-layout/bus-schedule-layout.service';
+import { GoodsService } from '../goods/goods/goods-service';
+export declare class PaymentService {
+    private readonly paymentModel;
+    private readonly bookingService;
+    private readonly goodsService;
+    private readonly busScheduleLayoutService;
+    private alphabet;
+    private nanoid;
+    constructor(paymentModel: Model<PaymentDocument>, bookingService: BookingService, goodsService: GoodsService, busScheduleLayoutService: BusScheduleLayoutService);
+    create(createPayment: CreatePaymentDto, tenantId: Types.ObjectId): Promise<PaymentDto>;
+    processBookingPayment(requestPaymentDto: RequestPaymentDto, tenantId: Types.ObjectId): Promise<PaymentDto[]>;
+    processGoodsPayment(requestPaymentDto: RequestPaymentDto, tenantId: Types.ObjectId, createdBy: Types.ObjectId): Promise<PaymentDto>;
+    findAll(tenantId: Types.ObjectId): Promise<PaymentDto[]>;
+    findAllByReferrentId(referrentId: Types.ObjectId, tenantId: Types.ObjectId): Promise<PaymentDto[]>;
+    findAllByPaymentGroupNumber(paymentGroupNumber: string, tenantId: Types.ObjectId): Promise<PaymentDto[]>;
+    findOne(id: string, tenantId: Types.ObjectId): Promise<PaymentDto>;
+    update(id: string, updatePaymentDto: UpdatePaymentDto, tenantId: Types.ObjectId): Promise<PaymentDto>;
+    cleanPaymentPromotion(referrentId: Types.ObjectId, tenantId: Types.ObjectId): Promise<void>;
+    remove(id: string, tenantId: Types.ObjectId): Promise<void>;
+    removePaymentsByReferrentIds(referrentIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<void>;
+    updatePaymentByRedeemPromotion(dto: RequestUpdatePaymentByRedeemPromotionDto, tenantId: Types.ObjectId): Promise<PaymentDto>;
+    generateNumberAlphabet(): string;
+}
