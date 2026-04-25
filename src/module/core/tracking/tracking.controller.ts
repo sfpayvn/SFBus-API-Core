@@ -1,0 +1,90 @@
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { TrackingService } from './tracking.service';
+import { CreateTrackingDto } from './dto/create-tracking.dto';
+import { UpdateTrackingDto } from './dto/update-tracking.dto';
+import { JwtAuthGuard } from '@/guards/jwt-auth.guard';
+import { RolesGuard } from '@/guards/roles.guard';
+import { Roles } from '@/decorators/roles.decorator';
+import { CurrentUser } from '@/decorators/current-user.decorator';
+import { UserTokenDto } from '@/jwt/dto/user-token.dto';
+import { ParseObjectIdPipe } from '@/common/pipes/parse-objectId.pipe';
+import { SearchTrackingQuerySortFilter } from './dto/tracking.dto';
+import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+
+@Controller('tracking')
+export class TrackingController {
+  constructor(private readonly trackingService: TrackingService) {}
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Post()
+  create(
+    @Body(ParseObjectIdPipe) createTrackingDto: CreateTrackingDto,
+    @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
+  ) {
+    const { tenantId } = user;
+    return this.trackingService.create(createTrackingDto, tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Get()
+  findAll(@CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
+    const { tenantId } = user;
+    return this.trackingService.findAll(tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Get('type/:type')
+  findByType(@Param('type') type: string, @CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
+    const { tenantId } = user;
+    return this.trackingService.findByType(type, tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Get(':id')
+  findOne(@Param('id') id: string, @CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
+    const { tenantId } = user;
+    return this.trackingService.findOne(id, tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Put()
+  update(
+    @Body(ParseObjectIdPipe) updateTrackingDto: UpdateTrackingDto,
+    @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
+  ) {
+    const { tenantId } = user;
+    return this.trackingService.update(updateTrackingDto, tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Delete(':id')
+  remove(@Param('id') id: string, @CurrentUser(ParseObjectIdPipe) user: UserTokenDto) {
+    const { tenantId } = user;
+    return this.trackingService.remove(id, tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLE_CONSTANTS.ADMIN, ROLE_CONSTANTS.TENANT, ROLE_CONSTANTS.TENANT_OPERATOR)
+  @Post('search')
+  search(
+    @Body()
+    body: {
+      pageIdx: number;
+      pageSize: number;
+      keyword: string;
+      sortBy: SearchTrackingQuerySortFilter;
+      filters: SearchTrackingQuerySortFilter[];
+    },
+    @CurrentUser(ParseObjectIdPipe) user: UserTokenDto,
+  ) {
+    const { tenantId } = user;
+    const { pageIdx, pageSize, keyword, sortBy, filters } = body;
+    return this.trackingService.searchTracking(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
+  }
+}
