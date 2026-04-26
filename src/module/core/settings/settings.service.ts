@@ -6,7 +6,7 @@ import { CreateSettingDto } from './dto/create-setting.dto';
 import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingDto, SearchSettingsRes, SettingSortFilter } from './dto/setting.dto';
 import { plainToInstance } from 'class-transformer';
-import { getFirstValue, processFilterValue, toObjectId } from '@/utils/utils';
+import { getFirstValue, processFilterValue, toObjectId, sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class SettingsService {
@@ -333,11 +333,12 @@ export class SettingsService {
     const ands: any[] = [];
 
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       ands.push({
         $or: [
-          { name: { $regex: keyword, $options: 'i' } },
-          { groupName: { $regex: keyword, $options: 'i' } },
-          { value: { $regex: keyword, $options: 'i' } },
+          { name: { $regex: safeKeyword, $options: 'i' } },
+          { groupName: { $regex: safeKeyword, $options: 'i' } },
+          { value: { $regex: safeKeyword, $options: 'i' } },
         ],
       });
     }

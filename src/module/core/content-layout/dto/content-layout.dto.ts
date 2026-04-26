@@ -1,5 +1,5 @@
 import { Exclude, Expose, Type, Transform } from 'class-transformer';
-import { IsOptional, IsNotEmpty, IsInt, IsString } from 'class-validator';
+import { IsOptional, IsNotEmpty, IsInt, IsString, MaxLength } from 'class-validator';
 import { Types } from 'mongoose';
 
 export class SearchContentLayoutsResultDto {
@@ -95,6 +95,7 @@ export class SearchContentLayoutQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

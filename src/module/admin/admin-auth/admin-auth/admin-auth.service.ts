@@ -17,6 +17,7 @@ import { AutoJobTrackingService } from '@/module/core/auto-job-tracking';
 import { AdminBusScheduleAutogeneratorService } from '../../admin-bus/admin-bus-schedule-autogenerator/admin-bus-schedule-autogenerator.service';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
 import { SettingsService } from '@/module/core/settings/settings.service';
+import { TenantService } from '@/module/core/tenant/tenant.service';
 
 @Injectable()
 export class AdminAuthService {
@@ -33,6 +34,20 @@ export class AdminAuthService {
   ) {}
 
   async tryAutoScheduleJobs(adminUser: AdminUserDto, timezoneOffset: number) {
+    const isRun = await this.autoJobTrackingService.tryRunToday(adminUser.tenantId, 'auto_schedule', timezoneOffset);
+    if (isRun) {
+      this.adminBusScheduleAutogeneratorService
+        .generateSchedulesForToday(adminUser.tenantId, timezoneOffset)
+        .catch((err) => {
+          // Silent fail - don't disrupt login
+        });
+    }
+  }
+
+   async tryAutoScheduleJobsV2(adminUser: AdminUserDto, timezoneOffset: number) {
+
+
+
     const isRun = await this.autoJobTrackingService.tryRunToday(adminUser.tenantId, 'auto_schedule', timezoneOffset);
     if (isRun) {
       this.adminBusScheduleAutogeneratorService

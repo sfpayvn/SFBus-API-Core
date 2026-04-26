@@ -7,6 +7,7 @@ import { SubscriptionDto, SearchSubscriptionsRes, SearchSubscriptionQuerySortFil
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { SubscriptionDocument } from './schema/subscription.schema';
+import { sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class SubscriptionService {
@@ -111,8 +112,9 @@ export class SubscriptionService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 

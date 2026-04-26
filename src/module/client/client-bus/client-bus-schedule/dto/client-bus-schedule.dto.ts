@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Exclude, Expose, Type } from 'class-transformer';
 import { ClientBusProvinceDto } from '../../client-bus-province/dto/client-bus-province.dto';
 import { ClientBusTemplateDto } from '../../client-bus-template/dto/client-bus-template.dto';
@@ -161,6 +161,7 @@ export class ClientSearchBusSchedulePagingQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

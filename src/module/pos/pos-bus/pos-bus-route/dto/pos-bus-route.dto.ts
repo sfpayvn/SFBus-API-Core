@@ -1,5 +1,5 @@
 import { Exclude, Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Document, Types } from 'mongoose';
 
 export class PosBusRouteDto {
@@ -56,6 +56,7 @@ export class PosSearchBusRouteQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

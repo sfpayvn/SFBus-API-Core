@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Exclude, Expose, Type } from 'class-transformer';
 import { BusDto } from '../../bus/dto/bus.dto';
 import { BusRouteDto } from '../../bus-route/dto/bus-route.dto';
@@ -160,6 +160,7 @@ export class SearchBusSchedulePagingQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()
@@ -198,6 +199,7 @@ export class SearchBusSchedulePagingRes {
 export class SearchBusScheduleDriverQuery {
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

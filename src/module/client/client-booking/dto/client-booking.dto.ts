@@ -1,5 +1,5 @@
 import { Exclude, Expose, Type } from 'class-transformer';
-import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Types } from 'mongoose';
 import { ClientBusScheduleDto } from '../../client-bus/client-bus-schedule/dto/client-bus-schedule.dto';
 import { ClientPaymentDto } from '../../client-payment/dto/client-payment.dto';
@@ -168,6 +168,7 @@ export class ClientSearchBookingPagingQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

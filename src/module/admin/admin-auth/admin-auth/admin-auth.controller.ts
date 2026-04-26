@@ -11,6 +11,7 @@ import {
   HttpCode,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { LocalAuthGuard } from '@/guards/local-auth.guard.ts';
 import { JwtAuthGuard } from '@/guards/jwt-auth.guard';
 import { ParseObjectIdPipe } from '@/common/pipes/parse-objectId.pipe';
@@ -28,6 +29,7 @@ export class AuthController {
   constructor(private adminAuthService: AdminAuthService) {}
 
   // Endpoint đăng nhập
+  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 minutes
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Request() req, @TimezoneOffset() timezoneOffset: number) {
@@ -39,7 +41,8 @@ export class AuthController {
     return this.adminAuthService.login(req.user);
   }
 
-  // Endpoint đăng nhập
+  // Endpoint đăng ký
+  @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 attempts per hour
   @Post('signUp')
   async signUp(@Body(ParseObjectIdPipe) adminSignUpDto: AdminSignUpDto) {
     // Sau khi LocalStrategy xác thực, req.user sẽ chứa thông tin người dùng
@@ -60,6 +63,7 @@ export class AuthController {
     return { valid: true, user: req.user };
   }
 
+  @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 attempts per hour
   @Post('forgot-password')
   @HttpCode(200)
   async forgotPassword(@Body(ParseObjectIdPipe) adminForgotPasswordDto: AdminForgotPasswordDto) {

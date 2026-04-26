@@ -92,7 +92,8 @@ export class AuthService {
     // TODO: gửi email chứa resetUrl (bạn đã có mail service thì dùng)
     // await this.emailService.sendResetPasswordLink(user.email, resetUrl);
 
-    return { ok: resetUrl };
+    // ✅ FIX: Never return the token or reset URL in API response — send via email/SMS only
+    return { ok: true };
   }
 
   async createForgotPasswordToken(identifier: string, tenantCode: string) {

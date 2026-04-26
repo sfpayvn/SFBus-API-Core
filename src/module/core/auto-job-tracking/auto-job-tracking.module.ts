@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AutoJobTrackingService } from './auto-job-tracking.service';
+import { AutoJobTrackingController } from './auto-job-tracking.controller';
 import { AutoJobTrackingSchema } from './schema/auto-job-tracking.schema';
 
 @Module({
@@ -12,6 +13,7 @@ import { AutoJobTrackingSchema } from './schema/auto-job-tracking.schema';
       },
     ]),
   ],
+  controllers: [AutoJobTrackingController],
   providers: [AutoJobTrackingService],
   exports: [AutoJobTrackingService],
 })

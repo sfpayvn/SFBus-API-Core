@@ -1,5 +1,5 @@
-﻿import { Type, Expose, Exclude, Transform } from 'class-transformer';
-import { IsNotEmpty, IsInt, IsOptional, IsString } from 'class-validator';
+import { Type, Expose, Exclude, Transform } from 'class-transformer';
+import { IsNotEmpty, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Types } from 'mongoose';
 
 export class AdminBusStationDto {
@@ -68,6 +68,7 @@ export class AdminSearchBusStationsQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

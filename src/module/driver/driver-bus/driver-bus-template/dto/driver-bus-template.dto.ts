@@ -1,7 +1,7 @@
 // src/BusTemplate/interfaces/BusTemplate.interface.ts
 import { Types } from 'mongoose';
 import { Exclude, Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { DriverBusServiceDto } from '../../driver-bus-service/dto/driver-bus-service.dto';
 import { DriverBusTypeDto } from '../../driver-bus-type/dto/driver-bus-type.dto';
 
@@ -64,6 +64,7 @@ export class DriverSearchBusTemplateQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

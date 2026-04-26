@@ -9,7 +9,7 @@ import {
   Min,
   IsDateString,
   IsNotEmpty,
-  IsString,
+  IsString, MaxLength,
 } from 'class-validator';
 import { Types } from 'mongoose';
 
@@ -99,6 +99,7 @@ export class AdminSearchTenantSubscriptionQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

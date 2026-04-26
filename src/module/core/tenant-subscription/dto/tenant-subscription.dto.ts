@@ -7,7 +7,7 @@ import {
   Min,
   IsDateString,
   IsNotEmpty,
-  IsString,
+  IsString, MaxLength,
 } from 'class-validator';
 import { Types } from 'mongoose';
 import { Expose, Exclude, Type } from 'class-transformer';
@@ -94,6 +94,7 @@ export class SearchTenantSubscriptionQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

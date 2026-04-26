@@ -215,43 +215,58 @@ export class ReportPaymentService {
     if (platform) matchFilter.platform = platform;
     if (userId) matchFilter.createdBy = new Types.ObjectId(userId);
 
+    const rootTenantObjectId = toObjectId(this.ROOT_TENANT_ID);
+
+    // ✅ FIX: Use aggregation pipeline with $lookup instead of Promise.all
+    // This avoids N+1 queries (1 aggregation instead of N findOne calls)
     const aggregateResult = await this.trackingModel
       .aggregate([
         { $match: matchFilter },
         { $group: { _id: '$metadata.paymentMethodId', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
+        // ✅ ADD: Join with payment_methods collection
+        {
+          $lookup: {
+            from: 'payment_methods',
+            let: { paymentMethodId: '$_id', tenantId: tenantId },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$_id', '$$paymentMethodId'] },
+                      { $in: ['$tenantId', ['$$tenantId', rootTenantObjectId]] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'paymentMethod'
+          }
+        },
+        {
+          $unwind: {
+            path: '$paymentMethod',
+            preserveNullAndEmptyArrays: true
+          }
+        }
       ])
       .exec();
 
     const total = aggregateResult.reduce((sum, item) => sum + item.count, 0);
 
-    const data = await Promise.all(
-      aggregateResult.map(async (item) => {
-        let methodName = 'Không xác định';
+    // ✅ FIX: No more Promise.all with async queries!
+    // Payment method data is already joined from aggregation pipeline
+    const data = aggregateResult.map((item) => {
+      const methodName = item.paymentMethod?.name || 'Không xác định';
+      const percentage = total > 0 ? Number(((item.count / total) * 100).toFixed(1)) : 0;
 
-        if (item._id) {
-          try {
-            const rootTenantObjectId = toObjectId(this.ROOT_TENANT_ID);
-            const paymentMethod = await this.paymentMethodModel
-              .findOne({ _id: item._id, tenantId: { $in: [tenantId, rootTenantObjectId] } })
-              .exec();
-            if (paymentMethod) {
-              methodName = paymentMethod.name;
-            }
-          } catch (error) {
-            // Keep default name
-          }
-        }
-
-        const percentage = total > 0 ? Number(((item.count / total) * 100).toFixed(1)) : 0;
-
-        return {
-          method: methodName,
-          count: item.count,
-          percentage,
-        };
-      }),
-    );
+      return {
+        method: methodName,
+        count: item.count,
+        percentage,
+      };
+    });
 
     return {
       data,

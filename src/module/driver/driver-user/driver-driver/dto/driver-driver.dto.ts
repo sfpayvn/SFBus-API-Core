@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Types } from 'mongoose';
 import { Exclude, Expose, Type } from 'class-transformer';
 import { DriverUserDto } from '../../driver-user-main/dto/driver-user.dto';
@@ -56,6 +56,7 @@ export class DriverSearchDriversQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

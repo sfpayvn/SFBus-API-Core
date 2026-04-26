@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import { BusServiceDto } from '../../bus-service/dto/bus-service.dto';
 import { BusTypeDto } from '../../bus-type/dto/bus-type.dto';
 import { Exclude, Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { BusTemplateDto } from '../../bus-template/dto/bus-template.dto';
 
 export class BusDto {
@@ -56,6 +56,7 @@ export class SearchBusQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

@@ -1,4 +1,5 @@
 import { Controller, Request, Post, UseGuards, Get, Req, Param, Query, HttpCode, Body } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from '@/guards/local-auth.guard.ts';
 import { JwtAuthGuard } from '@/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   // Endpoint đăng nhập
+  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 minutes
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Request() req) {
@@ -37,6 +39,7 @@ export class AuthController {
     return { valid: true, user: req.user };
   }
 
+  @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 attempts per hour
   @Post('forgot-password')
   @HttpCode(200)
   async forgotPassword(@Body(ParseObjectIdPipe) forgotPasswordDto: ForgotPasswordDto) {

@@ -110,6 +110,18 @@ export function getCurrentDate(timezone = 'Asia/Ho_Chi_Minh'): Date {
 }
 
 /**
+ * Escapes special regex characters to prevent ReDoS attacks.
+ * Use this on any user-supplied string before building a MongoDB $regex query.
+ */
+export function sanitizeKeyword(keyword: string, maxLength = 100): string {
+  if (!keyword || typeof keyword !== 'string') return '';
+  // Truncate to prevent huge regex patterns
+  const truncated = keyword.slice(0, maxLength);
+  // Escape all special regex metacharacters
+  return truncated.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Parses a time string with hours(h) and minutes(m) units to milliseconds
  * Accepts formats: 1, 1h, 1.5h, 1m, 1.5m, h, m
  * - If no unit: treated as hours (default)

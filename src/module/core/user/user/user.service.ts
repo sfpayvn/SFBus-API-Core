@@ -13,6 +13,7 @@ import { Model, Types } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { UpdatePasswordUserDto, UpdateUserProfileDto } from './dto/update-user.dto';
+import { sanitizeKeyword } from '@/utils/utils';
 import { UserDocument } from './schema/user.schema';
 import { SearchUserQuerySortFilter, SearchUsersRes, UserAddressDto, UserDto } from './dto/user.dto';
 import { plainToInstance } from 'class-transformer';
@@ -399,8 +400,9 @@ export class UserService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 

@@ -10,6 +10,7 @@ import {
 } from './dto/content-layout.dto';
 import { CreateContentLayoutDto } from './dto/create-content-layout.dto';
 import { UpdateContentLayoutDto } from './dto/update-content-layout.dto';
+import { sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class ContentLayoutService {
@@ -174,11 +175,12 @@ export class ContentLayoutService {
 
     // 1. Search by keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
         $or: [
-          { name: { $regex: keyword, $options: 'i' } },
-          { code: { $regex: keyword, $options: 'i' } },
-          { description: { $regex: keyword, $options: 'i' } },
+          { name: { $regex: safeKeyword, $options: 'i' } },
+          { code: { $regex: safeKeyword, $options: 'i' } },
+          { description: { $regex: safeKeyword, $options: 'i' } },
         ],
       });
     }

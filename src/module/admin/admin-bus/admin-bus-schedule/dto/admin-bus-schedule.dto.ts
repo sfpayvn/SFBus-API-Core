@@ -1,5 +1,5 @@
-﻿import { Types } from 'mongoose';
-import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Types } from 'mongoose';
+import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Exclude, Expose, Type } from 'class-transformer';
 import { AdminBusProvinceDto } from '../../admin-bus-province/dto/admin-bus-province.dto';
 import { AdminBusTemplateDto } from '../../admin-bus-template/dto/admin-bus-template.dto';
@@ -161,6 +161,7 @@ export class AdminSearchBusSchedulePagingQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

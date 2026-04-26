@@ -1,7 +1,7 @@
 // src/bus/interfaces/bus.interface.ts
 import { Types } from 'mongoose';
 import { Exclude, Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PosBusTemplateDto } from '../../pos-bus-template/dto/pos-bus-template.dto';
 
 export class PosBusDto {
@@ -54,6 +54,7 @@ export class PosSearchBusQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

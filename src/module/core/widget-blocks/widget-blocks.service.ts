@@ -6,6 +6,7 @@ import { CreateWidgetBlockDto } from './dto/create-widget-block.dto';
 import { UpdateWidgetBlockDto } from './dto/update-widget-block.dto';
 import { WidgetBlockDocument } from './schemas/widget-block.schema';
 import { SearchWidgetBlockQuerySortFilter, SearchWidgetBlocksResultDto, WidgetBlockDto } from './dto/widget-block.dto';
+import { sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class WidgetBlocksService {
@@ -140,11 +141,12 @@ export class WidgetBlocksService {
 
     // 1. Search by keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
         $or: [
-          { name: { $regex: keyword, $options: 'i' } },
-          { code: { $regex: keyword, $options: 'i' } },
-          { description: { $regex: keyword, $options: 'i' } },
+          { name: { $regex: safeKeyword, $options: 'i' } },
+          { code: { $regex: safeKeyword, $options: 'i' } },
+          { description: { $regex: safeKeyword, $options: 'i' } },
         ],
       });
     }

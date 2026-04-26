@@ -24,7 +24,7 @@ import { GoodsGateway } from './good.gateway';
 import { FileService } from '../../file/file/file.service';
 import { PaymentService } from '../../payment/payment-service';
 import { GOODS_STATUS } from '@/common/constants/status.constants';
-import { getFirstValue, processFilterValue, toObjectId } from '@/utils/utils';
+import { getFirstValue, processFilterValue, toObjectId, sanitizeKeyword } from '@/utils/utils';
 import { GoodsCategoryDto } from '../good-category/dto/goods-category.dto';
 import { GOODS_EVENT_TYPES } from '../types/goods.types';
 import { BusRouteService } from '../../bus/bus-route/bus-route.service';
@@ -663,43 +663,74 @@ export class GoodsService {
     return results as any;
   }
 
-  updatesGoodsStatus(goodsIds: string[], status: string, tenantId: Types.ObjectId): Promise<GoodsDto[]> {
-    const updatePromises = goodsIds.map(async (id) => {
-      const rootTenantIdObjectId = toObjectId(this.rootTenantId);
-      const goodsDocument = await this.goodsModel
-        .findOne({ _id: id, tenantId })
-        .populate({
-          path: 'busSchedule',
-          model: BusScheduleDocument.name,
-          match: { tenantId: { $in: [tenantId, rootTenantIdObjectId] } },
-        })
-        .populate({
-          path: 'busRoute',
-          model: BusRouteDocument.name,
-          match: { tenantId: { $in: [tenantId, rootTenantIdObjectId] } },
-        })
-        .populate({
-          path: 'categories',
-          model: GoodsCategoryDocument.name,
-          match: { tenantId: { $in: [tenantId, rootTenantIdObjectId] } },
-        })
-        .exec();
+  async updatesGoodsStatus(goodsIds: string[], status: string, tenantId: Types.ObjectId): Promise<GoodsDto[]> {
+    const rootTenantIdObjectId = toObjectId(this.rootTenantId);
+    const objectIds = goodsIds.map((id) => new Types.ObjectId(id));
 
-      if (!goodsDocument) {
-        throw new NotFoundException(`Goods with id ${id} not found`);
-      }
+    // 1. Fetch all goods in one query to get busScheduleId for event building
+    const existingDocs = await this.goodsModel
+      .find({ _id: { $in: objectIds }, tenantId })
+      .select('_id busScheduleId events')
+      .lean()
+      .exec();
 
-      // push event based on status change
-      goodsDocument.events = goodsDocument.events || [];
-      goodsDocument.events.push(this.buildEventForStatus(status, goodsDocument.busScheduleId ?? undefined));
+    if (existingDocs.length !== goodsIds.length) {
+      const foundIds = new Set(existingDocs.map((d) => d._id.toString()));
+      const missing = goodsIds.find((id) => !foundIds.has(id));
+      throw new NotFoundException(`Goods with id ${missing} not found`);
+    }
 
-      goodsDocument.status = status;
-
-      const updatedGoods = await goodsDocument.save();
-      return plainToInstance(GoodsDto, updatedGoods.toObject());
+    // 2. Build bulkWrite ops to update status + push event for each goods
+    const bulkOps = existingDocs.map((doc) => {
+      const newEvent = this.buildEventForStatus(status, (doc as any).busScheduleId ?? undefined);
+      return {
+        updateOne: {
+          filter: { _id: doc._id, tenantId },
+          update: {
+            $set: { status },
+            ...(newEvent ? { $push: { events: newEvent } } : {}),
+          },
+        },
+      };
     });
 
-    return Promise.all(updatePromises);
+    await this.goodsModel.bulkWrite(bulkOps);
+
+    // 3. Fetch updated docs with $lookup in a single aggregation
+    const pipeline: any[] = [
+      { $match: { _id: { $in: objectIds }, tenantId } },
+      {
+        $lookup: {
+          from: 'bus_schedules',
+          let: { sid: '$busScheduleId' },
+          pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$sid'] }, { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }] } } }],
+          as: 'busSchedule',
+        },
+      },
+      { $unwind: { path: '$busSchedule', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'bus_routes',
+          let: { rid: '$busRouteId' },
+          pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$rid'] }, { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }] } } }],
+          as: 'busRoute',
+        },
+      },
+      { $unwind: { path: '$busRoute', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'goods_categories',
+          let: { catIds: '$categoryIds' },
+          pipeline: [{ $match: { $expr: { $and: [{ $in: ['$_id', '$$catIds'] }, { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }] } } }],
+          as: 'categories',
+        },
+      },
+    ];
+
+    const results = await this.goodsModel.aggregate(pipeline).exec();
+    const dtos = results.map((g) => plainToInstance(GoodsDto, g));
+    await this.mapGoodsImageUrl(dtos);
+    return dtos;
   }
 
   private async determineAndSetPaymentStatus(
@@ -745,51 +776,122 @@ export class GoodsService {
     tenantId: Types.ObjectId,
   ): Promise<SearchGoodsPagingRes> {
     {
-      const pipeline = await this.buildQuerySearchGoodsPaging(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
-      // Thực hiện tìm kiếm
-      const goods = await this.goodsModel.aggregate(pipeline).exec();
+      const rootTenantIdObjectId = toObjectId(this.rootTenantId);
+      
+      // Build base pipeline with all $lookup stages BEFORE pagination
+      const pipeline = await this.buildQuerySearchGoodsPaging(0, 0, keyword, sortBy, filters, tenantId);
+      
+      // Add $lookup stages for busSchedule, busRoute, and categories to join data within MongoDB
+      // This eliminates N+1 queries (1 aggregate + N service calls)
+      pipeline.push(
+        // Lookup busSchedule
+        {
+          $lookup: {
+            from: 'bus_schedules',
+            let: { busScheduleId: '$busScheduleId', tenantId: '$tenantId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$_id', '$$busScheduleId'] },
+                      { $in: ['$tenantId', ['$$tenantId', rootTenantIdObjectId]] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'busSchedule'
+          }
+        },
+        // Unwind busSchedule (keep null if not found)
+        {
+          $unwind: {
+            path: '$busSchedule',
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        // Lookup busRoute
+        {
+          $lookup: {
+            from: 'bus_routes',
+            let: { busRouteId: '$busRouteId', tenantId: '$tenantId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$_id', '$$busRouteId'] },
+                      { $in: ['$tenantId', ['$$tenantId', rootTenantIdObjectId]] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'busRoute'
+          }
+        },
+        // Unwind busRoute
+        {
+          $unwind: {
+            path: '$busRoute',
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        // Lookup categories
+        {
+          $lookup: {
+            from: 'goods_categories',
+            let: { categoriesIds: '$categoriesIds' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $in: ['$_id', { $ifNull: ['$$categoriesIds', []] }] },
+                      { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'categories'
+          }
+        }
+      );
 
-      // Đếm tổng số mục theo filters (không có paging)
+      // Get total count BEFORE pagination
       const countPipeline = await this.buildQuerySearchGoodsPaging(0, 0, keyword, sortBy, filters, tenantId);
-      // Remove skip và limit từ count pipeline
       const countOnlyPipeline = countPipeline.filter((stage: any) => !stage.$skip && !stage.$limit);
       const countResult = await this.goodsModel.aggregate([...countOnlyPipeline, { $count: 'total' }]).exec();
       const totalItem = countResult.length > 0 ? countResult[0].total : 0;
 
+      // NOW add pagination stages AFTER all lookups
+      if (pageSize > 0) {
+        const skip = pageIdx ? (pageIdx - 1) * pageSize : 0;
+        pipeline.push({ $skip: skip }, { $limit: pageSize });
+      }
+
+      // Execute the complete pipeline with all joins in one query
+      const goods = await this.goodsModel.aggregate(pipeline).exec();
+
       // Lấy count by status (theo filters nhưng không bao gồm status)
       const countByStatus = await this.countByStatus(tenantId, keyword, filters);
 
-      const filteredGoods = await Promise.all(
-        goods.map(async (goods) => {
-          let busSchedule: BusScheduleDto | null = null;
-          if (goods.busScheduleId) {
-            busSchedule = await this.busScheduleService.findOne(goods.busScheduleId, tenantId);
-          }
-          let busRoute: BusRouteDto | null = null;
-          if (goods.busRouteId) {
-            const rootTenantIdObjectId = toObjectId(this.rootTenantId);
-            busRoute = await this.busRouteService.findOne(goods.busRouteId, [rootTenantIdObjectId, tenantId]);
-          }
-          const categories = await this.goodsCategoryService.findByIds(goods.categoriesIds || [], [
-            tenantId,
-            toObjectId(this.rootTenantId),
-          ]);
-          goods.categories = categories;
-
-          return plainToInstance(GoodsDto, {
-            ...goods,
-            busSchedule,
-            busRoute,
-          });
-        }),
-      );
+      // Transform results to DTOs (no more separate service calls!)
+      const filteredGoods = goods.map((good) => {
+        return plainToInstance(GoodsDto, {
+          ...good,
+          // busSchedule, busRoute, and categories already loaded from pipeline
+        });
+      });
 
       await this.mapGoodsImageUrl(filteredGoods);
 
       // Trả về kết quả
       return {
         pageIdx,
-        goods: filteredGoods, // Now properly awaited
+        goods: filteredGoods,
         totalPage: Math.ceil(totalItem / pageSize),
         totalItem,
         countByStatus,
@@ -812,17 +914,18 @@ export class GoodsService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
         $or: [
-          { name: { $regex: keyword, $options: 'i' } },
-          { goodsNumber: { $regex: keyword, $options: 'i' } },
-          { customerName: { $regex: keyword, $options: 'i' } },
+          { name: { $regex: safeKeyword, $options: 'i' } },
+          { goodsNumber: { $regex: safeKeyword, $options: 'i' } },
+          { customerName: { $regex: safeKeyword, $options: 'i' } },
 
-          { customerPhoneNumber: { $regex: keyword, $options: 'i' } },
-          { customerAddress: { $regex: keyword, $options: 'i' } },
+          { customerPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
+          { customerAddress: { $regex: safeKeyword, $options: 'i' } },
 
-          { senderName: { $regex: keyword, $options: 'i' } },
-          { senderPhoneNumber: { $regex: keyword, $options: 'i' } },
+          { senderName: { $regex: safeKeyword, $options: 'i' } },
+          { senderPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
         ],
       });
     }
@@ -997,15 +1100,16 @@ export class GoodsService {
     const matchConditions: any[] = [{ tenantId }];
 
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
         $or: [
-          { name: { $regex: keyword, $options: 'i' } },
-          { goodsNumber: { $regex: keyword, $options: 'i' } },
-          { customerName: { $regex: keyword, $options: 'i' } },
-          { customerPhoneNumber: { $regex: keyword, $options: 'i' } },
-          { customerAddress: { $regex: keyword, $options: 'i' } },
-          { senderName: { $regex: keyword, $options: 'i' } },
-          { senderPhoneNumber: { $regex: keyword, $options: 'i' } },
+          { name: { $regex: safeKeyword, $options: 'i' } },
+          { goodsNumber: { $regex: safeKeyword, $options: 'i' } },
+          { customerName: { $regex: safeKeyword, $options: 'i' } },
+          { customerPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
+          { customerAddress: { $regex: safeKeyword, $options: 'i' } },
+          { senderName: { $regex: safeKeyword, $options: 'i' } },
+          { senderPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
         ],
       });
     }

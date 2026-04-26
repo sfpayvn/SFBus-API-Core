@@ -4,7 +4,6 @@ import { Model, Types } from 'mongoose';
 import { AutoJobTrackingDocument } from './schema/auto-job-tracking.schema';
 import moment from 'moment-timezone';
 import { toObjectId } from '@/utils/utils';
-import { ppid } from 'process';
 
 @Injectable()
 export class AutoJobTrackingService {
@@ -16,10 +15,9 @@ export class AutoJobTrackingService {
     private readonly trackingModel: Model<AutoJobTrackingDocument>,
   ) {
     // Ensure unique index exists
-    this.trackingModel.collection.createIndex(
-      { tenantId: 1, jobName: 1, runDate: 1 },
-      { unique: true }
-    ).catch(err => this.logger.warn('Index creation warning:', err.message));
+    this.trackingModel.collection
+      .createIndex({ tenantId: 1, jobName: 1, runDate: 1 }, { unique: true })
+      .catch((err) => this.logger.warn('Index creation warning:', err.message));
   }
 
   /**
@@ -86,5 +84,33 @@ export class AutoJobTrackingService {
       this.logger.error(`Error in tryRunToday for tenant ${tenantId}, job '${jobName}':`, err);
       return false;
     }
+  }
+
+  /**
+   * Check if a job has already run today for the given tenant.
+   */
+  async hasRanToday(
+    tenantId: Types.ObjectId,
+    jobName: string = 'auto_schedule',
+    timezoneOffset: number = 25200000,
+  ): Promise<boolean> {
+    const offsetMinutes = timezoneOffset / 60000;
+    const today = moment().utcOffset(offsetMinutes).format('YYYY-MM-DD');
+    const record = await this.trackingModel.findOne({ tenantId, jobName, runDate: today }).lean().exec();
+    return !!record;
+  }
+
+  /**
+   * Delete today's tracking record so the job can run again.
+   */
+  async resetToday(
+    tenantId: Types.ObjectId,
+    jobName: string = 'auto_schedule',
+    timezoneOffset: number = 25200000,
+  ): Promise<void> {
+    const offsetMinutes = timezoneOffset / 60000;
+    const today = moment().utcOffset(offsetMinutes).format('YYYY-MM-DD');
+    await this.trackingModel.deleteOne({ tenantId, jobName, runDate: today }).exec();
+    this.logger.log(`Reset tracking for job '${jobName}', tenant ${tenantId}, date ${today}`);
   }
 }

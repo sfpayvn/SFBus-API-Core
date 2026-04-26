@@ -1,5 +1,5 @@
-﻿import { Exclude, Expose, Type } from 'class-transformer';
-import { IsString } from 'class-validator';
+import { Exclude, Expose, Type } from 'class-transformer';
+import { IsString, MaxLength } from 'class-validator';
 import { IsOptional } from 'class-validator';
 import { IsInt } from 'class-validator';
 import { IsNotEmpty } from 'class-validator';
@@ -14,10 +14,10 @@ export class AdminGoodsEvent {
   type: GoodsEventType;
 
   @Expose()
-  stationId?: Types.ObjectId; // station liên quan (drop/nhận/...)
+  stationId?: Types.ObjectId; // station li�n quan (drop/nh?n/...)
 
   @Expose()
-  scheduleId?: Types.ObjectId; // schedule liên quan
+  scheduleId?: Types.ObjectId; // schedule li�n quan
 
   @Expose()
   note?: string = '';
@@ -110,16 +110,16 @@ export class AdminGoodsDto {
 
   // Station relationship fields
   @Expose()
-  originStationId?: Types.ObjectId; // station gửi (office gửi)
+  originStationId?: Types.ObjectId; // station g?i (office g?i)
 
   @Expose()
-  destinationStationId?: Types.ObjectId; // station nhận (office nhận / hub cuối)
+  destinationStationId?: Types.ObjectId; // station nh?n (office nh?n / hub cu?i)
 
   @Expose()
-  currentStationId?: Types.ObjectId; // station hiện tại đang giữ hàng (null khi ON_BOARD)
+  currentStationId?: Types.ObjectId; // station hi?n t?i dang gi? h�ng (null khi ON_BOARD)
 
   @Expose()
-  currentScheduleId?: Types.ObjectId; // schedule hiện tại (alias cho busScheduleId)
+  currentScheduleId?: Types.ObjectId; // schedule hi?n t?i (alias cho busScheduleId)
 
   // Delivery type & address
   @Expose()
@@ -132,10 +132,10 @@ export class AdminGoodsDto {
   deliveryFulfillmentMode?: FulfillmentMode; // ROADSIDE | STATION
 
   @Expose()
-  pickupAddress?: string; // nếu nhận dọc đường
+  pickupAddress?: string; // n?u nh?n d?c du?ng
 
   @Expose()
-  deliveryAddress?: string; // nếu giao tận nhà
+  deliveryAddress?: string; // n?u giao t?n nh�
 
   @Expose()
   createdAt: Date;
@@ -171,6 +171,7 @@ export class AdminSearchGoodsPagingQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

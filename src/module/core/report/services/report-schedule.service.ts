@@ -401,38 +401,61 @@ export class ReportScheduleService {
       }
     });
 
-    const data: TopRouteItemDto[] = await Promise.all(
-      aggregateResult.map(async (item) => {
-        let routeName = 'Không xác định';
-        const routeId = item._id ? item._id.toString() : '';
+    const rootTenantObjectId = toObjectId(this.ROOT_TENANT_ID);
 
-        if (item._id) {
-          try {
-            const rootTenantObjectId = toObjectId(this.ROOT_TENANT_ID);
-            const route = await this.busRouteModel.findOne({
-              _id: item._id,
-              tenantId: { $in: [tenantId, rootTenantObjectId] },
-            });
-            if (route) {
-              routeName = route.name;
-            }
-          } catch (error) {
-            // Keep default name
+    // ✅ FIX: Get all route data in ONE query using aggregation $lookup
+    // Instead of 10+ separate findOne calls, fetch all routes via aggregation pipeline
+    const routesWithNames = await this.trackingModel
+      .aggregate([
+        { $match: matchFilter },
+        { $group: { _id: '$metadata.busRouteId', ticketCount: { $sum: { $toInt: '$metadata.totalTickets' } } } },
+        { $sort: { ticketCount: -1 } },
+        { $limit: 10 },
+        // ✅ ADD: Join with bus_routes collection
+        {
+          $lookup: {
+            from: 'bus_routes',
+            let: { busRouteId: '$_id', tenantId: tenantId },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$_id', '$$busRouteId'] },
+                      { $in: ['$tenantId', ['$$tenantId', rootTenantObjectId]] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'route'
+          }
+        },
+        {
+          $unwind: {
+            path: '$route',
+            preserveNullAndEmptyArrays: true
           }
         }
+      ])
+      .exec();
 
-        const percentage = totalTickets > 0 ? Number(((item.ticketCount / totalTickets) * 100).toFixed(1)) : 0;
-        const revenue = revenueMap.get(routeId) || 0;
+    // ✅ FIX: Map results without Promise.all and async queries
+    const data: TopRouteItemDto[] = routesWithNames.map((item) => {
+      const routeName = item.route?.name || 'Không xác định';
+      const routeId = item._id ? item._id.toString() : '';
 
-        return {
-          routeId,
-          routeName,
-          ticketCount: item.ticketCount,
-          percentage,
-          revenue,
-        };
-      }),
-    );
+      const percentage = totalTickets > 0 ? Number(((item.ticketCount / totalTickets) * 100).toFixed(1)) : 0;
+      const revenue = revenueMap.get(routeId) || 0;
+
+      return {
+        routeId,
+        routeName,
+        ticketCount: item.ticketCount,
+        percentage,
+        revenue,
+      };
+    });
 
     return {
       data,

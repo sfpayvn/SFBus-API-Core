@@ -9,6 +9,7 @@ import { BusTypeService } from '../bus-type/bus-type.service';
 import { plainToInstance } from 'class-transformer';
 import { UpdateBusDto } from './dto/update-bus.dto';
 import { BusTemplateService } from '../bus-template/bus-template.service';
+import { sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class BusService {
@@ -40,21 +41,49 @@ export class BusService {
     tenantId: Types.ObjectId,
     rootTenantId: Types.ObjectId,
   ): Promise<BusDto[] | []> {
-    const busesModel = await this.busModel.find({ busTemplateId, tenantId }).lean().exec();
+    // ✅ FIX: Use aggregation pipeline with $lookup to avoid N+1 queries
+    const busesModel = await this.busModel.aggregate([
+      {
+        $match: {
+          busTemplateId,
+          tenantId,
+        }
+      },
+      // Join with bus_templates collection
+      {
+        $lookup: {
+          from: 'bus_templates',
+          let: { busTemplateId: '$busTemplateId', tenantId: '$tenantId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$_id', '$$busTemplateId'] },
+                    { $in: ['$tenantId', ['$$tenantId', rootTenantId]] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'busTemplate'
+        }
+      },
+      {
+        $unwind: {
+          path: '$busTemplate',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ]).exec();
 
     // Giữ nguyên hành vi cũ: chỉ check null (find() trả []), không throw khi rỗng
     if (!busesModel) {
       return [];
     }
 
+    // Result: 1 aggregation query instead of N+1 queries
     const buses = busesModel.map((bus) => plainToInstance(BusDto, bus));
-
-    await Promise.all(
-      buses.map(async (bus) => {
-        // Nếu BusTemplate cũng cần scope theo tenant, thêm tenantId tại đây (tùy chữ ký service của bạn)
-        bus.busTemplate = await this.busTemplateService.findOne(bus.busTemplateId, [tenantId, rootTenantId]);
-      }),
-    );
     return buses;
   }
 
@@ -127,8 +156,9 @@ export class BusService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 

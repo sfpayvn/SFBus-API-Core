@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -29,6 +30,14 @@ const featureModules = [
       isGlobal: true,
       envFilePath: `.env`,
     }),
+    // ✅ Configure global rate limiting using @Throttle decorators
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 900000, // 15 minutes (default)
+        limit: 100, // 100 requests per window (default)
+      },
+    ]),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

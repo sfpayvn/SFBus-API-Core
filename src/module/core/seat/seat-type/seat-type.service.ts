@@ -6,6 +6,7 @@ import { CreateSeatTypeDto } from './dto/create-seat-type.dto';
 import { SeatTypeDocument } from './schema/seat-type.schema';
 import { plainToInstance } from 'class-transformer';
 import { UpdateSeatTypeDto } from './dto/update-seat-type.dto';
+import { sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class SeatTypeService {
@@ -112,8 +113,9 @@ export class SeatTypeService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 
