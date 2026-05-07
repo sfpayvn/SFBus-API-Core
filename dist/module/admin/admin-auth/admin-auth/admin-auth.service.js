@@ -44,6 +44,15 @@ let AdminAuthService = class AdminAuthService {
             });
         }
     }
+    async tryAutoScheduleJobsV2(adminUser, timezoneOffset) {
+        const isRun = await this.autoJobTrackingService.tryRunToday(adminUser.tenantId, 'auto_schedule', timezoneOffset);
+        if (isRun) {
+            this.adminBusScheduleAutogeneratorService
+                .generateSchedulesForToday(adminUser.tenantId, timezoneOffset)
+                .catch((err) => {
+            });
+        }
+    }
     async login(adminUser) {
         const allowedRoles = [roles_constants_1.ROLE_CONSTANTS.TENANT, roles_constants_1.ROLE_CONSTANTS.TENANT_OPERATOR, roles_constants_1.ROLE_CONSTANTS.ADMIN];
         if (!adminUser.roles.some((role) => allowedRoles.includes(role))) {

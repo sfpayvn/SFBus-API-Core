@@ -327,8 +327,9 @@ let BusScheduleService = class BusScheduleService {
         const pipeline = [];
         const matchConditions = [{ tenantId }];
         if (keyword) {
+            const safeKeyword = (0, utils_2.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';
@@ -437,8 +438,9 @@ let BusScheduleService = class BusScheduleService {
         const pipeline = [];
         const matchConditions = [{ tenantId }];
         if (keyword) {
+            const safeKeyword = (0, utils_2.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }, { busScheduleNumber: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }, { busScheduleNumber: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';
@@ -525,8 +527,9 @@ let BusScheduleService = class BusScheduleService {
         const pipeline = [];
         const matchConditions = [{ tenantId }, { busDriverIds: { $in: [driverId] } }];
         if (keyword) {
+            const safeKeyword = (0, utils_2.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';
@@ -643,13 +646,21 @@ let BusScheduleService = class BusScheduleService {
     async enrichSchedules(schedules, tenantId) {
         const updatedSchedules = await this.updateScheduleStatus(schedules, tenantId);
         schedules = updatedSchedules;
-        const remainSeats = await Promise.all(schedules.map((schedule) => this.busScheduleLayoutService.getRemainSeats(schedule._id, tenantId)));
-        schedules.forEach((schedule, index) => {
-            schedule.remainSeat = remainSeats[index];
+        const scheduleIds = schedules.map((s) => s._id);
+        const remainSeatsMap = await this.busScheduleLayoutService.getRemainSeatsBatch(scheduleIds, tenantId);
+        schedules.forEach((schedule) => {
+            schedule.remainSeat = remainSeatsMap.get(schedule._id?.toString()) ?? 0;
         });
-        const busDriversList = await Promise.all(schedules.map((schedule) => this.driverService.findUserDriverByIds(schedule.busDriverIds, tenantId)));
-        return schedules.map((schedule, index) => {
-            schedule.busDrivers = busDriversList[index];
+        const allDriverIdStrings = [
+            ...new Set(schedules.flatMap((s) => (s.busDriverIds ?? []).map((id) => id?.toString()).filter(Boolean))),
+        ];
+        const allDriverIds = allDriverIdStrings.map((id) => new mongoose_3.Types.ObjectId(id));
+        const allDrivers = allDriverIds.length > 0 ? (await this.driverService.findUserDriverByIds(allDriverIds, tenantId)) ?? [] : [];
+        const driverMap = new Map(allDrivers.map((d) => [d._id?.toString(), d]));
+        return schedules.map((schedule) => {
+            schedule.busDrivers = (schedule.busDriverIds ?? [])
+                .map((id) => driverMap.get(id?.toString()))
+                .filter(Boolean);
             schedule = this.mapBusTemplateServices(schedule);
             return schedule;
         });

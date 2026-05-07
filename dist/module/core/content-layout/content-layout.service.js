@@ -19,6 +19,7 @@ const mongoose_2 = require("mongoose");
 const content_layout_schema_1 = require("./schemas/content-layout.schema");
 const class_transformer_1 = require("class-transformer");
 const content_layout_dto_1 = require("./dto/content-layout.dto");
+const utils_1 = require("../../../utils/utils");
 let ContentLayoutService = class ContentLayoutService {
     constructor(contentLayoutModel) {
         this.contentLayoutModel = contentLayoutModel;
@@ -134,11 +135,12 @@ let ContentLayoutService = class ContentLayoutService {
         const matchConditions = [];
         matchConditions.push({ tenantId: { $in: tenantIds } });
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
                 $or: [
-                    { name: { $regex: keyword, $options: 'i' } },
-                    { code: { $regex: keyword, $options: 'i' } },
-                    { description: { $regex: keyword, $options: 'i' } },
+                    { name: { $regex: safeKeyword, $options: 'i' } },
+                    { code: { $regex: safeKeyword, $options: 'i' } },
+                    { description: { $regex: safeKeyword, $options: 'i' } },
                 ],
             });
         }

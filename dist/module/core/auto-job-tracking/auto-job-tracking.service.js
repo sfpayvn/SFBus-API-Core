@@ -27,7 +27,9 @@ let AutoJobTrackingService = AutoJobTrackingService_1 = class AutoJobTrackingSer
         this.trackingModel = trackingModel;
         this.ROOT_TENANT_ID = process.env.ROOT_TENANT_ID?.trim() || '';
         this.logger = new common_1.Logger(AutoJobTrackingService_1.name);
-        this.trackingModel.collection.createIndex({ tenantId: 1, jobName: 1, runDate: 1 }, { unique: true }).catch(err => this.logger.warn('Index creation warning:', err.message));
+        this.trackingModel.collection
+            .createIndex({ tenantId: 1, jobName: 1, runDate: 1 }, { unique: true })
+            .catch((err) => this.logger.warn('Index creation warning:', err.message));
     }
     async tryRunToday(tenantId, jobName = 'auto_schedule', timezoneOffset = 25200000) {
         const offsetMinutes = timezoneOffset / 60000;
@@ -72,6 +74,18 @@ let AutoJobTrackingService = AutoJobTrackingService_1 = class AutoJobTrackingSer
             this.logger.error(`Error in tryRunToday for tenant ${tenantId}, job '${jobName}':`, err);
             return false;
         }
+    }
+    async hasRanToday(tenantId, jobName = 'auto_schedule', timezoneOffset = 25200000) {
+        const offsetMinutes = timezoneOffset / 60000;
+        const today = (0, moment_timezone_1.default)().utcOffset(offsetMinutes).format('YYYY-MM-DD');
+        const record = await this.trackingModel.findOne({ tenantId, jobName, runDate: today }).lean().exec();
+        return !!record;
+    }
+    async resetToday(tenantId, jobName = 'auto_schedule', timezoneOffset = 25200000) {
+        const offsetMinutes = timezoneOffset / 60000;
+        const today = (0, moment_timezone_1.default)().utcOffset(offsetMinutes).format('YYYY-MM-DD');
+        await this.trackingModel.deleteOne({ tenantId, jobName, runDate: today }).exec();
+        this.logger.log(`Reset tracking for job '${jobName}', tenant ${tenantId}, date ${today}`);
     }
 };
 exports.AutoJobTrackingService = AutoJobTrackingService;

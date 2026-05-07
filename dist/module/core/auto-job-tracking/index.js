@@ -16,5 +16,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./auto-job-tracking.module"), exports);
 __exportStar(require("./auto-job-tracking.service"), exports);
+__exportStar(require("./auto-job-tracking.controller"), exports);
 __exportStar(require("./schema/auto-job-tracking.schema"), exports);
 //# sourceMappingURL=index.js.map

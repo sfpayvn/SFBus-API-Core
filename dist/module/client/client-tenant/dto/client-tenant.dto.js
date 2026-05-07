@@ -108,6 +108,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
 ], ClientSearchTenantQuery.prototype, "keyword", void 0);
 __decorate([

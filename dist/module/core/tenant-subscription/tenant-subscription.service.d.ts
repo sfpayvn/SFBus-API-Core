@@ -14,6 +14,15 @@ export declare class TenantSubscriptionService {
     }> & {
         __v: number;
     }) | null>;
+    findAllRawActiveSubscriptions(now: Date): Promise<Array<{
+        tenantId: Types.ObjectId;
+        limitationSnapshot: any;
+    }>>;
+    findAllActiveEligibleForModule(moduleKey: string): Promise<Types.ObjectId[]>;
+    findActiveByTenantIds(tenantIds: Types.ObjectId[], now: Date): Promise<Array<{
+        tenantId: any;
+        subscriptionId: any;
+    }>>;
     findByTenantId(tenantId: Types.ObjectId): Promise<TenantSubscriptionDto | null>;
     findAllByTenantId(tenantId: Types.ObjectId): Promise<TenantSubscriptionDto[]>;
     search(pageIdx: number, pageSize: number, keyword: string, sortBy: SearchTenantSubscriptionQuerySortFilter, filters: SearchTenantSubscriptionQuerySortFilter[]): Promise<SearchTenantSubscriptionRes>;

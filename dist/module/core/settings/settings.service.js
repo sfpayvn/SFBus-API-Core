@@ -250,11 +250,12 @@ let SettingsService = class SettingsService {
         const match = { tenantId };
         const ands = [];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             ands.push({
                 $or: [
-                    { name: { $regex: keyword, $options: 'i' } },
-                    { groupName: { $regex: keyword, $options: 'i' } },
-                    { value: { $regex: keyword, $options: 'i' } },
+                    { name: { $regex: safeKeyword, $options: 'i' } },
+                    { groupName: { $regex: safeKeyword, $options: 'i' } },
+                    { value: { $regex: safeKeyword, $options: 'i' } },
                 ],
             });
         }

@@ -19,6 +19,7 @@ const mongoose_2 = require("mongoose");
 const seat_type_dto_1 = require("./dto/seat-type.dto");
 const seat_type_schema_1 = require("./schema/seat-type.schema");
 const class_transformer_1 = require("class-transformer");
+const utils_1 = require("../../../../utils/utils");
 let SeatTypeService = class SeatTypeService {
     constructor(seatTypeModel) {
         this.seatTypeModel = seatTypeModel;
@@ -83,8 +84,9 @@ let SeatTypeService = class SeatTypeService {
         const pipeline = [];
         const matchConditions = [{ tenantId: { $in: tenantIds } }];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';

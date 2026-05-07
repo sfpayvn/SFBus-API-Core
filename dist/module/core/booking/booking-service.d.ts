@@ -49,6 +49,14 @@ export declare class BookingService {
     findBookings2Payment(userId: Types.ObjectId, bookingIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<BookingDto[] | null>;
     findBookingSeats(seatIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<Types.ObjectId[] | null>;
     findBookingBySchedule(busScheduleId: Types.ObjectId, tenantId: Types.ObjectId): Promise<BookingDto[] | null>;
+    findBookingsByScheduleIds(busScheduleIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<Array<{
+        busScheduleId: Types.ObjectId;
+        bookingItems: Array<{
+            seat?: {
+                _id?: any;
+            };
+        }>;
+    }>>;
     search(pageIdx: number, pageSize: number, keyword: string, sortBy: BookingSortFilter, filters: BookingSortFilter[], tenantId: Types.ObjectId): Promise<SearchBookingPagingRes>;
     buildQuerySearchBookingPaging(pageIdx: number, pageSize: number, keyword: string, sortBy: BookingSortFilter, filters: BookingSortFilter[], tenantId: Types.ObjectId): Promise<any>;
     findOne(id: Types.ObjectId): Promise<BookingDto>;

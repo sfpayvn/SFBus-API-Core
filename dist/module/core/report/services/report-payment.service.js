@@ -139,36 +139,49 @@ let ReportPaymentService = class ReportPaymentService {
             matchFilter.platform = platform;
         if (userId)
             matchFilter.createdBy = new mongoose_2.Types.ObjectId(userId);
+        const rootTenantObjectId = (0, utils_1.toObjectId)(this.ROOT_TENANT_ID);
         const aggregateResult = await this.trackingModel
             .aggregate([
             { $match: matchFilter },
             { $group: { _id: '$metadata.paymentMethodId', count: { $sum: 1 } } },
             { $sort: { count: -1 } },
+            {
+                $lookup: {
+                    from: 'payment_methods',
+                    let: { paymentMethodId: '$_id', tenantId: tenantId },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$_id', '$$paymentMethodId'] },
+                                        { $in: ['$tenantId', ['$$tenantId', rootTenantObjectId]] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'paymentMethod'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$paymentMethod',
+                    preserveNullAndEmptyArrays: true
+                }
+            }
         ])
             .exec();
         const total = aggregateResult.reduce((sum, item) => sum + item.count, 0);
-        const data = await Promise.all(aggregateResult.map(async (item) => {
-            let methodName = 'Không xác định';
-            if (item._id) {
-                try {
-                    const rootTenantObjectId = (0, utils_1.toObjectId)(this.ROOT_TENANT_ID);
-                    const paymentMethod = await this.paymentMethodModel
-                        .findOne({ _id: item._id, tenantId: { $in: [tenantId, rootTenantObjectId] } })
-                        .exec();
-                    if (paymentMethod) {
-                        methodName = paymentMethod.name;
-                    }
-                }
-                catch (error) {
-                }
-            }
+        const data = aggregateResult.map((item) => {
+            const methodName = item.paymentMethod?.name || 'Không xác định';
             const percentage = total > 0 ? Number(((item.count / total) * 100).toFixed(1)) : 0;
             return {
                 method: methodName,
                 count: item.count,
                 percentage,
             };
-        }));
+        });
         return {
             data,
             total,

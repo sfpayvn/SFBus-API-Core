@@ -50,6 +50,7 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const bcrypt = __importStar(require("bcrypt"));
+const utils_1 = require("../../../../utils/utils");
 const user_schema_1 = require("./schema/user.schema");
 const user_dto_1 = require("./dto/user.dto");
 const class_transformer_1 = require("class-transformer");
@@ -317,8 +318,9 @@ let UserService = class UserService {
         const pipeline = [{ $match: { tenantId } }];
         const matchConditions = [];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         if (Array.isArray(filters)) {

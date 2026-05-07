@@ -508,37 +508,65 @@ let GoodsService = class GoodsService {
         await this.mapGoodsImageUrl(results);
         return results;
     }
-    updatesGoodsStatus(goodsIds, status, tenantId) {
-        const updatePromises = goodsIds.map(async (id) => {
-            const rootTenantIdObjectId = (0, utils_1.toObjectId)(this.rootTenantId);
-            const goodsDocument = await this.goodsModel
-                .findOne({ _id: id, tenantId })
-                .populate({
-                path: 'busSchedule',
-                model: bus_schedule_schema_1.BusScheduleDocument.name,
-                match: { tenantId: { $in: [tenantId, rootTenantIdObjectId] } },
-            })
-                .populate({
-                path: 'busRoute',
-                model: bus_route_schema_1.BusRouteDocument.name,
-                match: { tenantId: { $in: [tenantId, rootTenantIdObjectId] } },
-            })
-                .populate({
-                path: 'categories',
-                model: goods__categoryschema_1.GoodsCategoryDocument.name,
-                match: { tenantId: { $in: [tenantId, rootTenantIdObjectId] } },
-            })
-                .exec();
-            if (!goodsDocument) {
-                throw new common_1.NotFoundException(`Goods with id ${id} not found`);
-            }
-            goodsDocument.events = goodsDocument.events || [];
-            goodsDocument.events.push(this.buildEventForStatus(status, goodsDocument.busScheduleId ?? undefined));
-            goodsDocument.status = status;
-            const updatedGoods = await goodsDocument.save();
-            return (0, class_transformer_1.plainToInstance)(goods_dto_1.GoodsDto, updatedGoods.toObject());
+    async updatesGoodsStatus(goodsIds, status, tenantId) {
+        const rootTenantIdObjectId = (0, utils_1.toObjectId)(this.rootTenantId);
+        const objectIds = goodsIds.map((id) => new mongoose_2.Types.ObjectId(id));
+        const existingDocs = await this.goodsModel
+            .find({ _id: { $in: objectIds }, tenantId })
+            .select('_id busScheduleId events')
+            .lean()
+            .exec();
+        if (existingDocs.length !== goodsIds.length) {
+            const foundIds = new Set(existingDocs.map((d) => d._id.toString()));
+            const missing = goodsIds.find((id) => !foundIds.has(id));
+            throw new common_1.NotFoundException(`Goods with id ${missing} not found`);
+        }
+        const bulkOps = existingDocs.map((doc) => {
+            const newEvent = this.buildEventForStatus(status, doc.busScheduleId ?? undefined);
+            return {
+                updateOne: {
+                    filter: { _id: doc._id, tenantId },
+                    update: {
+                        $set: { status },
+                        ...(newEvent ? { $push: { events: newEvent } } : {}),
+                    },
+                },
+            };
         });
-        return Promise.all(updatePromises);
+        await this.goodsModel.bulkWrite(bulkOps);
+        const pipeline = [
+            { $match: { _id: { $in: objectIds }, tenantId } },
+            {
+                $lookup: {
+                    from: 'bus_schedules',
+                    let: { sid: '$busScheduleId' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$sid'] }, { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }] } } }],
+                    as: 'busSchedule',
+                },
+            },
+            { $unwind: { path: '$busSchedule', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'bus_routes',
+                    let: { rid: '$busRouteId' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $eq: ['$_id', '$$rid'] }, { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }] } } }],
+                    as: 'busRoute',
+                },
+            },
+            { $unwind: { path: '$busRoute', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'goods_categories',
+                    let: { catIds: '$categoryIds' },
+                    pipeline: [{ $match: { $expr: { $and: [{ $in: ['$_id', '$$catIds'] }, { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }] } } }],
+                    as: 'categories',
+                },
+            },
+        ];
+        const results = await this.goodsModel.aggregate(pipeline).exec();
+        const dtos = results.map((g) => (0, class_transformer_1.plainToInstance)(goods_dto_1.GoodsDto, g));
+        await this.mapGoodsImageUrl(dtos);
+        return dtos;
     }
     async determineAndSetPaymentStatus(updateGoodsDto, goodsDocument, tenantId) {
         if (updateGoodsDto.shippingCost !== goodsDocument.shippingCost || updateGoodsDto.cod !== goodsDocument.cod) {
@@ -569,34 +597,88 @@ let GoodsService = class GoodsService {
     }
     async searchGoodsPaging(pageIdx, pageSize, keyword, sortBy, filters, tenantId) {
         {
-            const pipeline = await this.buildQuerySearchGoodsPaging(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
-            const goods = await this.goodsModel.aggregate(pipeline).exec();
+            const rootTenantIdObjectId = (0, utils_1.toObjectId)(this.rootTenantId);
+            const pipeline = await this.buildQuerySearchGoodsPaging(0, 0, keyword, sortBy, filters, tenantId);
+            pipeline.push({
+                $lookup: {
+                    from: 'bus_schedules',
+                    let: { busScheduleId: '$busScheduleId', tenantId: '$tenantId' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$_id', '$$busScheduleId'] },
+                                        { $in: ['$tenantId', ['$$tenantId', rootTenantIdObjectId]] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'busSchedule'
+                }
+            }, {
+                $unwind: {
+                    path: '$busSchedule',
+                    preserveNullAndEmptyArrays: true
+                }
+            }, {
+                $lookup: {
+                    from: 'bus_routes',
+                    let: { busRouteId: '$busRouteId', tenantId: '$tenantId' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$_id', '$$busRouteId'] },
+                                        { $in: ['$tenantId', ['$$tenantId', rootTenantIdObjectId]] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'busRoute'
+                }
+            }, {
+                $unwind: {
+                    path: '$busRoute',
+                    preserveNullAndEmptyArrays: true
+                }
+            }, {
+                $lookup: {
+                    from: 'goods_categories',
+                    let: { categoriesIds: '$categoriesIds' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $in: ['$_id', { $ifNull: ['$$categoriesIds', []] }] },
+                                        { $in: ['$tenantId', [tenantId, rootTenantIdObjectId]] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'categories'
+                }
+            });
             const countPipeline = await this.buildQuerySearchGoodsPaging(0, 0, keyword, sortBy, filters, tenantId);
             const countOnlyPipeline = countPipeline.filter((stage) => !stage.$skip && !stage.$limit);
             const countResult = await this.goodsModel.aggregate([...countOnlyPipeline, { $count: 'total' }]).exec();
             const totalItem = countResult.length > 0 ? countResult[0].total : 0;
+            if (pageSize > 0) {
+                const skip = pageIdx ? (pageIdx - 1) * pageSize : 0;
+                pipeline.push({ $skip: skip }, { $limit: pageSize });
+            }
+            const goods = await this.goodsModel.aggregate(pipeline).exec();
             const countByStatus = await this.countByStatus(tenantId, keyword, filters);
-            const filteredGoods = await Promise.all(goods.map(async (goods) => {
-                let busSchedule = null;
-                if (goods.busScheduleId) {
-                    busSchedule = await this.busScheduleService.findOne(goods.busScheduleId, tenantId);
-                }
-                let busRoute = null;
-                if (goods.busRouteId) {
-                    const rootTenantIdObjectId = (0, utils_1.toObjectId)(this.rootTenantId);
-                    busRoute = await this.busRouteService.findOne(goods.busRouteId, [rootTenantIdObjectId, tenantId]);
-                }
-                const categories = await this.goodsCategoryService.findByIds(goods.categoriesIds || [], [
-                    tenantId,
-                    (0, utils_1.toObjectId)(this.rootTenantId),
-                ]);
-                goods.categories = categories;
+            const filteredGoods = goods.map((good) => {
                 return (0, class_transformer_1.plainToInstance)(goods_dto_1.GoodsDto, {
-                    ...goods,
-                    busSchedule,
-                    busRoute,
+                    ...good,
                 });
-            }));
+            });
             await this.mapGoodsImageUrl(filteredGoods);
             return {
                 pageIdx,
@@ -612,15 +694,16 @@ let GoodsService = class GoodsService {
         const pipeline = [];
         const matchConditions = [{ tenantId }];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
                 $or: [
-                    { name: { $regex: keyword, $options: 'i' } },
-                    { goodsNumber: { $regex: keyword, $options: 'i' } },
-                    { customerName: { $regex: keyword, $options: 'i' } },
-                    { customerPhoneNumber: { $regex: keyword, $options: 'i' } },
-                    { customerAddress: { $regex: keyword, $options: 'i' } },
-                    { senderName: { $regex: keyword, $options: 'i' } },
-                    { senderPhoneNumber: { $regex: keyword, $options: 'i' } },
+                    { name: { $regex: safeKeyword, $options: 'i' } },
+                    { goodsNumber: { $regex: safeKeyword, $options: 'i' } },
+                    { customerName: { $regex: safeKeyword, $options: 'i' } },
+                    { customerPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
+                    { customerAddress: { $regex: safeKeyword, $options: 'i' } },
+                    { senderName: { $regex: safeKeyword, $options: 'i' } },
+                    { senderPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
                 ],
             });
         }
@@ -746,15 +829,16 @@ let GoodsService = class GoodsService {
     async countByField(tenantId, field, keyword, filters) {
         const matchConditions = [{ tenantId }];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
                 $or: [
-                    { name: { $regex: keyword, $options: 'i' } },
-                    { goodsNumber: { $regex: keyword, $options: 'i' } },
-                    { customerName: { $regex: keyword, $options: 'i' } },
-                    { customerPhoneNumber: { $regex: keyword, $options: 'i' } },
-                    { customerAddress: { $regex: keyword, $options: 'i' } },
-                    { senderName: { $regex: keyword, $options: 'i' } },
-                    { senderPhoneNumber: { $regex: keyword, $options: 'i' } },
+                    { name: { $regex: safeKeyword, $options: 'i' } },
+                    { goodsNumber: { $regex: safeKeyword, $options: 'i' } },
+                    { customerName: { $regex: safeKeyword, $options: 'i' } },
+                    { customerPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
+                    { customerAddress: { $regex: safeKeyword, $options: 'i' } },
+                    { senderName: { $regex: safeKeyword, $options: 'i' } },
+                    { senderPhoneNumber: { $regex: safeKeyword, $options: 'i' } },
                 ],
             });
         }

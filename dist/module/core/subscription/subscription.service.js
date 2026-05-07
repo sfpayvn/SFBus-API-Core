@@ -19,6 +19,7 @@ const mongoose_2 = require("mongoose");
 const class_transformer_1 = require("class-transformer");
 const subscription_dto_1 = require("./dto/subscription.dto");
 const subscription_schema_1 = require("./schema/subscription.schema");
+const utils_1 = require("../../../utils/utils");
 let SubscriptionService = class SubscriptionService {
     constructor(subscriptionModel) {
         this.subscriptionModel = subscriptionModel;
@@ -81,8 +82,9 @@ let SubscriptionService = class SubscriptionService {
         const pipeline = [];
         const matchConditions = [];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';

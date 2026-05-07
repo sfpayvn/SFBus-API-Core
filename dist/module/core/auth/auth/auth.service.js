@@ -116,7 +116,7 @@ let AuthService = class AuthService {
         const token = this.createForgotPasswordToken(phoneNumber, tenantCode);
         const base = redirectBaseUrl ?? this.FRONTEND_RESET_URL;
         const resetUrl = `${base}?token=${token}`;
-        return { ok: resetUrl };
+        return { ok: true };
     }
     async createForgotPasswordToken(identifier, tenantCode) {
         const tenant = await this.tenantService.findByCode(tenantCode);

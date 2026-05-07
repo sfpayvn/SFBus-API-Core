@@ -284,23 +284,43 @@ let ReportScheduleService = class ReportScheduleService {
                 totalRevenue += item.revenue;
             }
         });
-        const data = await Promise.all(aggregateResult.map(async (item) => {
-            let routeName = 'Không xác định';
-            const routeId = item._id ? item._id.toString() : '';
-            if (item._id) {
-                try {
-                    const rootTenantObjectId = (0, utils_1.toObjectId)(this.ROOT_TENANT_ID);
-                    const route = await this.busRouteModel.findOne({
-                        _id: item._id,
-                        tenantId: { $in: [tenantId, rootTenantObjectId] },
-                    });
-                    if (route) {
-                        routeName = route.name;
-                    }
+        const rootTenantObjectId = (0, utils_1.toObjectId)(this.ROOT_TENANT_ID);
+        const routesWithNames = await this.trackingModel
+            .aggregate([
+            { $match: matchFilter },
+            { $group: { _id: '$metadata.busRouteId', ticketCount: { $sum: { $toInt: '$metadata.totalTickets' } } } },
+            { $sort: { ticketCount: -1 } },
+            { $limit: 10 },
+            {
+                $lookup: {
+                    from: 'bus_routes',
+                    let: { busRouteId: '$_id', tenantId: tenantId },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$_id', '$$busRouteId'] },
+                                        { $in: ['$tenantId', ['$$tenantId', rootTenantObjectId]] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'route'
                 }
-                catch (error) {
+            },
+            {
+                $unwind: {
+                    path: '$route',
+                    preserveNullAndEmptyArrays: true
                 }
             }
+        ])
+            .exec();
+        const data = routesWithNames.map((item) => {
+            const routeName = item.route?.name || 'Không xác định';
+            const routeId = item._id ? item._id.toString() : '';
             const percentage = totalTickets > 0 ? Number(((item.ticketCount / totalTickets) * 100).toFixed(1)) : 0;
             const revenue = revenueMap.get(routeId) || 0;
             return {
@@ -310,7 +330,7 @@ let ReportScheduleService = class ReportScheduleService {
                 percentage,
                 revenue,
             };
-        }));
+        });
         return {
             data,
             total: totalTickets,

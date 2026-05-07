@@ -56,6 +56,7 @@ const tenant_subscription_service_1 = require("../../tenant-subscription/tenant-
 const user_dto_1 = require("../user/dto/user.dto");
 const user_schema_1 = require("../user/schema/user.schema");
 const roles_constants_1 = require("../../../../common/constants/roles.constants");
+const utils_1 = require("../../../../utils/utils");
 let UserTenantService = class UserTenantService {
     constructor(userModel, tenantService, tenantSubscriptionService) {
         this.userModel = userModel;
@@ -335,16 +336,25 @@ let UserTenantService = class UserTenantService {
             });
             matchStageIndex = 0;
         }
+        pipeline.push({
+            $lookup: {
+                from: 'tenants',
+                localField: 'tenantId',
+                foreignField: '_id',
+                as: 'tenant'
+            }
+        }, {
+            $unwind: {
+                path: '$tenant',
+                preserveNullAndEmptyArrays: true
+            }
+        });
         const usersModel = await this.userModel.aggregate(pipeline).exec();
         const matchConditions = pipeline[matchStageIndex].$match;
         const totalItem = await this.userModel.countDocuments(matchConditions);
-        let users = await Promise.all(usersModel.map(async (user) => {
-            const tenant = await this.tenantService.findOne(user.tenantId);
-            if (tenant) {
-                user.tenant = tenant;
-            }
+        let users = usersModel.map((user) => {
             return (0, class_transformer_1.plainToInstance)(user_dto_1.UserDto, user);
-        }));
+        });
         users = await this.mapUserAvatarUrl(users);
         return {
             pageIdx,
@@ -358,8 +368,9 @@ let UserTenantService = class UserTenantService {
         const pipeline = [{ $match: {} }];
         const matchConditions = [];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         if (Array.isArray(filters)) {

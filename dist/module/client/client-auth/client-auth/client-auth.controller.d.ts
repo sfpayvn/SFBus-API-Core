@@ -23,7 +23,7 @@ export declare class AuthController {
         };
     } | null>;
     forgotPassword(ClientForgotPasswordDto: ClientForgotPasswordDto): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     reset(ClientResetPasswordDto: ClientResetPasswordDto): Promise<{
         ok: boolean;

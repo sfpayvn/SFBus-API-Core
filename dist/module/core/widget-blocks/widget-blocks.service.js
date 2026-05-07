@@ -19,6 +19,7 @@ const mongoose_2 = require("mongoose");
 const class_transformer_1 = require("class-transformer");
 const widget_block_schema_1 = require("./schemas/widget-block.schema");
 const widget_block_dto_1 = require("./dto/widget-block.dto");
+const utils_1 = require("../../../utils/utils");
 let WidgetBlocksService = class WidgetBlocksService {
     constructor(widgetBlockModel) {
         this.widgetBlockModel = widgetBlockModel;
@@ -119,11 +120,12 @@ let WidgetBlocksService = class WidgetBlocksService {
         matchConditions.push({ tenantId: { $in: tenantIds } });
         matchConditions.push({ isActive: true });
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
                 $or: [
-                    { name: { $regex: keyword, $options: 'i' } },
-                    { code: { $regex: keyword, $options: 'i' } },
-                    { description: { $regex: keyword, $options: 'i' } },
+                    { name: { $regex: safeKeyword, $options: 'i' } },
+                    { code: { $regex: safeKeyword, $options: 'i' } },
+                    { description: { $regex: safeKeyword, $options: 'i' } },
                 ],
             });
         }

@@ -20,7 +20,7 @@ export declare class AuthController {
         };
     } | null>;
     forgotPassword(driverForgotPasswordDto: DriverForgotPasswordDto): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     reset(driverResetPasswordDto: DriverResetPasswordDto): Promise<{
         ok: boolean;

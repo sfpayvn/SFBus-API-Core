@@ -42,6 +42,7 @@ const settings_module_1 = require("./settings/settings.module");
 const report_module_1 = require("./report/report.module");
 const tracking_module_1 = require("./tracking/tracking.module");
 const auto_job_tracking_1 = require("./auto-job-tracking");
+const auto_job_module_1 = require("./auto-job/auto-job.module");
 const widget_blocks_module_1 = require("./widget-blocks/widget-blocks.module");
 const driver_module_1 = require("./user/driver/driver.module");
 const fee_tax_module_1 = require("./fee-tax/fee-tax.module");
@@ -86,6 +87,7 @@ exports.CoreModule = CoreModule = __decorate([
             report_module_1.ReportModule,
             tracking_module_1.TrackingModule,
             auto_job_tracking_1.AutoJobTrackingModule,
+            auto_job_module_1.AutoJobModule,
             widget_blocks_module_1.WidgetBlocksModule,
             fee_tax_module_1.FeeTaxModule,
         ],
@@ -125,6 +127,7 @@ exports.CoreModule = CoreModule = __decorate([
             report_module_1.ReportModule,
             tracking_module_1.TrackingModule,
             auto_job_tracking_1.AutoJobTrackingModule,
+            auto_job_module_1.AutoJobModule,
             widget_blocks_module_1.WidgetBlocksModule,
             fee_tax_module_1.FeeTaxModule,
         ],

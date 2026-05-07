@@ -12,6 +12,7 @@ exports.idToString = idToString;
 exports.eqObjectId = eqObjectId;
 exports.processFilterValue = processFilterValue;
 exports.getCurrentDate = getCurrentDate;
+exports.sanitizeKeyword = sanitizeKeyword;
 exports.parseTimeHmToMilliseconds = parseTimeHmToMilliseconds;
 const mongoose_1 = require("mongoose");
 const moment_timezone_1 = __importDefault(require("moment-timezone"));
@@ -104,6 +105,12 @@ function processFilterValue(key, value) {
 }
 function getCurrentDate(timezone = 'Asia/Ho_Chi_Minh') {
     return moment_timezone_1.default.tz(timezone).toDate();
+}
+function sanitizeKeyword(keyword, maxLength = 100) {
+    if (!keyword || typeof keyword !== 'string')
+        return '';
+    const truncated = keyword.slice(0, maxLength);
+    return truncated.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 function parseTimeHmToMilliseconds(value) {
     if (!value)

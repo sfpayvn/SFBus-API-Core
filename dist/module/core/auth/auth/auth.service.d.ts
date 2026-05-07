@@ -21,7 +21,7 @@ export declare class AuthService {
     verifyPhoneNumber(phoneNumber: string): Promise<any>;
     validateOtp(userId: Types.ObjectId, tenantId: Types.ObjectId, otp: string): Promise<boolean>;
     forgotPassword(phoneNumber: string, tenantCode: string, redirectBaseUrl?: string): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     createForgotPasswordToken(identifier: string, tenantCode: string): Promise<string | {
         ok: boolean;

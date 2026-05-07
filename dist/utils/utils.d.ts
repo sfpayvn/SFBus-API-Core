@@ -8,4 +8,5 @@ export declare function idToString(x: any): string | null;
 export declare function eqObjectId(a: any, b: any): boolean;
 export declare function processFilterValue(key: string, value: string | string[] | Types.ObjectId | Types.ObjectId[]): any;
 export declare function getCurrentDate(timezone?: string): Date;
+export declare function sanitizeKeyword(keyword: string, maxLength?: number): string;
 export declare function parseTimeHmToMilliseconds(value: string): number;

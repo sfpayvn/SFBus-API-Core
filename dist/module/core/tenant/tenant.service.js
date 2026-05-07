@@ -23,6 +23,7 @@ const tenant_subscription_service_1 = require("../tenant-subscription/tenant-sub
 const file_service_1 = require("../file/file/file.service");
 const user_service_1 = require("../user/user/user.service");
 const roles_constants_1 = require("../../../common/constants/roles.constants");
+const utils_1 = require("../../../utils/utils");
 const subscription_service_1 = require("../subscription/subscription.service");
 const settings_service_1 = require("../settings/settings.service");
 let TenantService = class TenantService {
@@ -188,10 +189,13 @@ let TenantService = class TenantService {
         const pipeline = await this.buildQuerySearchTenants(pageIdx, pageSize, keyword, sortBy, filters);
         const tenants = await this.tenantModel.aggregate(pipeline).exec();
         const totalItem = await this.tenantModel.countDocuments({});
-        let result = (0, class_transformer_1.plainToInstance)(tenant_dto_1.TenantDto, await Promise.all(tenants.map(async (tenant) => {
-            const subscription = await this.tenantSubscriptionService.getActive(tenant._id);
-            const subscriptionId = subscription ? subscription.subscriptionId : null;
-            return { ...tenant, subscriptionId };
+        const tenantIds = tenants.map((t) => t._id);
+        const now = new Date();
+        const activeSubscriptions = await this.tenantSubscriptionService.findActiveByTenantIds(tenantIds, now);
+        const subMap = new Map(activeSubscriptions.map((s) => [s.tenantId?.toString(), s.subscriptionId]));
+        let result = (0, class_transformer_1.plainToInstance)(tenant_dto_1.TenantDto, tenants.map((tenant) => ({
+            ...tenant,
+            subscriptionId: subMap.get(tenant._id?.toString()) ?? null,
         })));
         return {
             pageIdx,
@@ -205,8 +209,9 @@ let TenantService = class TenantService {
         const pipeline = [];
         const matchConditions = [];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';

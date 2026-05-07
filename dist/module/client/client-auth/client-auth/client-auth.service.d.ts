@@ -28,7 +28,7 @@ export declare class ClientAuthService {
         };
     } | null>;
     forgotPassword(phoneNumber: string, redirectBaseUrl?: string): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         ok: boolean;

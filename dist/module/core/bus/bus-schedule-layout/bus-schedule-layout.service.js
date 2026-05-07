@@ -167,6 +167,53 @@ let BusScheduleLayoutService = class BusScheduleLayoutService {
             throw new common_1.NotFoundException(`BusScheduleLayout with ID "${id}" not found.`);
         }
     }
+    async getRemainSeatsBatch(scheduleIds, tenantId) {
+        const result = new Map();
+        if (!scheduleIds.length)
+            return result;
+        const layouts = await this.busScheduleLayoutModel
+            .find({ busScheduleId: { $in: scheduleIds }, tenantId })
+            .lean()
+            .exec();
+        if (!layouts.length)
+            return result;
+        const allBookingsRaw = await this.bookingService.findBookingsByScheduleIds(scheduleIds, tenantId);
+        const bookedSeatsBySchedule = new Map();
+        for (const booking of allBookingsRaw) {
+            const sid = booking.busScheduleId?.toString();
+            if (!sid)
+                continue;
+            if (!bookedSeatsBySchedule.has(sid))
+                bookedSeatsBySchedule.set(sid, new Set());
+            for (const item of booking.bookingItems ?? []) {
+                const seatId = item?.seat?._id?.toString?.();
+                if (seatId)
+                    bookedSeatsBySchedule.get(sid).add(seatId);
+            }
+        }
+        const seatTypes = await this.seatTypeService.findAll([tenantId, new mongoose_2.Types.ObjectId(this.ROOT_TENANT_ID)]);
+        const envTypeIds = new Set((seatTypes ?? []).filter((st) => !!st && st.isEnv).map((st) => st._id.toString()));
+        for (const layout of layouts) {
+            const scheduleIdStr = layout.busScheduleId?.toString();
+            if (!scheduleIdStr)
+                continue;
+            const bookedSeatIds = bookedSeatsBySchedule.get(scheduleIdStr) ?? new Set();
+            let remainSeats = 0;
+            for (const seatLayout of layout.seatLayouts ?? []) {
+                for (const seat of seatLayout.seats ?? []) {
+                    const seatId = seat?._id?.toString?.();
+                    const typeId = seat?.typeId?.toString?.();
+                    const isBooked = seatId ? bookedSeatIds.has(seatId) : false;
+                    const isEnv = typeId ? envTypeIds.has(typeId) : false;
+                    if (!isBooked && !isEnv && seat.status === 'available') {
+                        remainSeats++;
+                    }
+                }
+            }
+            result.set(scheduleIdStr, remainSeats);
+        }
+        return result;
+    }
     async getRemainSeats(busScheduleId, tenantId) {
         const busScheduleLayoutModel = await this.busScheduleLayoutModel.findOne({ busScheduleId, tenantId }).lean().exec();
         if (!busScheduleLayoutModel) {
@@ -178,33 +225,27 @@ let BusScheduleLayoutService = class BusScheduleLayoutService {
         if (!seatTypes || seatTypes.length === 0) {
             return 0;
         }
-        const updatePromises = await busScheduleLayout.seatLayouts.map(async (seatLayout) => {
-            const bookings = (await this.bookingService.findBookingBySchedule(busScheduleId, tenantId)) ?? [];
-            const bookedSeatIds = new Set();
-            for (const booking of bookings ?? []) {
-                for (const item of booking.bookingItems ?? []) {
-                    const sid = item?.seat?._id;
-                    if (sid != null)
-                        bookedSeatIds.add(sid.toString());
+        const bookings = (await this.bookingService.findBookingBySchedule(busScheduleId, tenantId)) ?? [];
+        const bookedSeatIds = new Set();
+        for (const booking of bookings) {
+            for (const item of booking.bookingItems ?? []) {
+                const sid = item?.seat?._id;
+                if (sid != null)
+                    bookedSeatIds.add(sid.toString());
+            }
+        }
+        const envTypeIds = new Set((seatTypes ?? []).filter((st) => !!st && st.isEnv).map((st) => st._id.toString()));
+        for (const seatLayout of busScheduleLayout.seatLayouts ?? []) {
+            for (const seat of seatLayout.seats ?? []) {
+                const seatId = seat?._id?.toString?.();
+                const typeId = seat?.typeId?.toString?.();
+                const isBooked = seatId ? bookedSeatIds.has(seatId) : false;
+                const isEnv = typeId ? envTypeIds.has(typeId) : false;
+                if (!isBooked && !isEnv && seat.status === 'available') {
+                    remainSeats++;
                 }
             }
-            const envTypeIds = new Set((seatTypes ?? []).filter((st) => !!st && st.isEnv).map((st) => st._id.toString()));
-            busScheduleLayout.seatLayouts = (busScheduleLayout.seatLayouts ?? []).map((seatLayout) => {
-                seatLayout.seats = (seatLayout.seats ?? []).map((seat) => {
-                    const seatId = seat?._id?.toString?.();
-                    const typeId = seat?.typeId?.toString?.();
-                    const isBooked = seatId ? bookedSeatIds.has(seatId) : false;
-                    const isEnv = typeId ? envTypeIds.has(typeId) : false;
-                    if (isBooked || isEnv) {
-                        return { ...seat, status: 'blocked' };
-                    }
-                    return seat;
-                });
-                return seatLayout;
-            });
-            remainSeats += seatLayout.seats.filter((seat) => seat.status === 'available').length;
-        });
-        await Promise.all(updatePromises);
+        }
         return remainSeats;
     }
 };

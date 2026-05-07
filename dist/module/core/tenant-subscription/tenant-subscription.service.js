@@ -130,6 +130,55 @@ let TenantSubscriptionService = class TenantSubscriptionService {
         })
             .exec();
     }
+    async findAllRawActiveSubscriptions(now) {
+        return this.tenantSubModel
+            .find({
+            status: 'active',
+            startAt: { $lte: now },
+            endAt: { $gt: now },
+        })
+            .select('tenantId limitationSnapshot')
+            .lean()
+            .exec();
+    }
+    async findAllActiveEligibleForModule(moduleKey) {
+        const now = new Date();
+        const subs = await this.tenantSubModel
+            .find({
+            status: 'active',
+            startAt: { $lte: now },
+            endAt: { $gt: now },
+        })
+            .select('tenantId limitationSnapshot')
+            .lean()
+            .exec();
+        return subs
+            .filter((sub) => {
+            const modules = sub.limitationSnapshot?.modules ?? [];
+            const mod = modules.find((m) => m.key === moduleKey);
+            if (!mod)
+                return true;
+            const rule = mod.moduleRule;
+            if (!rule)
+                return true;
+            return !(rule.type === 'block' && (rule.quota ?? 0) === 0);
+        })
+            .map((sub) => sub.tenantId);
+    }
+    async findActiveByTenantIds(tenantIds, now) {
+        if (!tenantIds.length)
+            return [];
+        return this.tenantSubModel
+            .find({
+            tenantId: { $in: tenantIds },
+            status: 'active',
+            startAt: { $lte: now },
+            endAt: { $gt: now },
+        })
+            .select('tenantId subscriptionId')
+            .lean()
+            .exec();
+    }
     async findByTenantId(tenantId) {
         const tenantSubModel = await this.tenantSubModel.findOne({ tenantId }).lean().exec();
         if (!tenantSubModel)
@@ -161,8 +210,9 @@ let TenantSubscriptionService = class TenantSubscriptionService {
         const pipeline = [];
         const matchConditions = [];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';

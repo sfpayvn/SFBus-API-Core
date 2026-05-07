@@ -19,6 +19,7 @@ export declare class AdminAuthService {
     private jwtService;
     constructor(adminUserMainService: AdminUserMainService, adminTenantService: AdminTenantService, authService: AuthService, autoJobTrackingService: AutoJobTrackingService, adminBusScheduleAutogeneratorService: AdminBusScheduleAutogeneratorService, settingsService: SettingsService, jwtService: JwtService);
     tryAutoScheduleJobs(adminUser: AdminUserDto, timezoneOffset: number): Promise<void>;
+    tryAutoScheduleJobsV2(adminUser: AdminUserDto, timezoneOffset: number): Promise<void>;
     login(adminUser: AdminUserDto): Promise<{
         access_token: string;
     }>;
@@ -27,7 +28,7 @@ export declare class AdminAuthService {
     }>;
     verifyPhoneNumber(phoneNumber: string): Promise<any>;
     forgotPassword(phoneNumber: string, redirectBaseUrl?: string): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         ok: boolean;

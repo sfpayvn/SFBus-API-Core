@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
+const throttler_1 = require("@nestjs/throttler");
 const local_auth_guard_ts_1 = require("../../../../guards/local-auth.guard.ts");
 const jwt_auth_guard_1 = require("../../../../guards/jwt-auth.guard");
 const parse_objectId_pipe_1 = require("../../../../common/pipes/parse-objectId.pipe");
@@ -78,6 +79,7 @@ let AuthController = class AuthController {
 };
 exports.AuthController = AuthController;
 __decorate([
+    (0, throttler_1.Throttle)({ default: { limit: 5, ttl: 900000 } }),
     (0, common_1.UseGuards)(local_auth_guard_ts_1.LocalAuthGuard),
     (0, common_1.Post)('login'),
     __param(0, (0, common_1.Request)()),
@@ -102,6 +104,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "validateToken", null);
 __decorate([
+    (0, throttler_1.Throttle)({ default: { limit: 10, ttl: 900000 } }),
     (0, common_1.Post)('verify-forgot-password-otp'),
     (0, common_1.HttpCode)(200),
     __param(0, (0, common_1.Body)(parse_objectId_pipe_1.ParseObjectIdPipe)),
@@ -110,6 +113,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyForgotPasswordOtp", null);
 __decorate([
+    (0, throttler_1.Throttle)({ default: { limit: 3, ttl: 3600000 } }),
     (0, common_1.Post)('forgot-password'),
     (0, common_1.HttpCode)(200),
     __param(0, (0, common_1.Body)(parse_objectId_pipe_1.ParseObjectIdPipe)),

@@ -6,4 +6,6 @@ export declare class AutoJobTrackingService {
     private readonly logger;
     constructor(trackingModel: Model<AutoJobTrackingDocument>);
     tryRunToday(tenantId: Types.ObjectId, jobName?: string, timezoneOffset?: number): Promise<boolean>;
+    hasRanToday(tenantId: Types.ObjectId, jobName?: string, timezoneOffset?: number): Promise<boolean>;
+    resetToday(tenantId: Types.ObjectId, jobName?: string, timezoneOffset?: number): Promise<void>;
 }

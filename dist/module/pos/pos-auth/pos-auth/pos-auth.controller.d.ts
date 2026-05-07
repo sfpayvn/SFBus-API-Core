@@ -21,7 +21,7 @@ export declare class AuthController {
         };
     } | null>;
     forgotPassword(posForgotPasswordDto: PosForgotPasswordDto): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     reset(PosResetPasswordDto: PosResetPasswordDto): Promise<{
         ok: boolean;

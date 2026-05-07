@@ -22,6 +22,7 @@ const bus_service_service_1 = require("../bus-service/bus-service.service");
 const bus_type_service_1 = require("../bus-type/bus-type.service");
 const class_transformer_1 = require("class-transformer");
 const bus_template_service_1 = require("../bus-template/bus-template.service");
+const utils_1 = require("../../../../utils/utils");
 let BusService = class BusService {
     constructor(busModel, busServiceService, busTypeService, busTemplateService) {
         this.busModel = busModel;
@@ -42,14 +43,43 @@ let BusService = class BusService {
         return (0, class_transformer_1.plainToInstance)(bus_dto_1.BusDto, bus);
     }
     async findByBusTemplate(busTemplateId, tenantId, rootTenantId) {
-        const busesModel = await this.busModel.find({ busTemplateId, tenantId }).lean().exec();
+        const busesModel = await this.busModel.aggregate([
+            {
+                $match: {
+                    busTemplateId,
+                    tenantId,
+                }
+            },
+            {
+                $lookup: {
+                    from: 'bus_templates',
+                    let: { busTemplateId: '$busTemplateId', tenantId: '$tenantId' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$_id', '$$busTemplateId'] },
+                                        { $in: ['$tenantId', ['$$tenantId', rootTenantId]] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'busTemplate'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$busTemplate',
+                    preserveNullAndEmptyArrays: true
+                }
+            }
+        ]).exec();
         if (!busesModel) {
             return [];
         }
         const buses = busesModel.map((bus) => (0, class_transformer_1.plainToInstance)(bus_dto_1.BusDto, bus));
-        await Promise.all(buses.map(async (bus) => {
-            bus.busTemplate = await this.busTemplateService.findOne(bus.busTemplateId, [tenantId, rootTenantId]);
-        }));
         return buses;
     }
     async findAll(tenantId) {
@@ -87,8 +117,9 @@ let BusService = class BusService {
         const pipeline = [];
         const matchConditions = [{ tenantId }];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';

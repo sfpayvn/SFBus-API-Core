@@ -19,5 +19,6 @@ export declare class BusScheduleLayoutService {
     updateSeatStatusByBusSchedule(busScheduleId: Types.ObjectId, requestUpdateSeatDto: RequestUpdateSeatStatusDto[], tenantId: Types.ObjectId): Promise<boolean>;
     updateCancelledSeatStatusByBusSchedule(busScheduleId: Types.ObjectId, seatIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<boolean>;
     remove(id: string, tenantId: Types.ObjectId): Promise<void>;
+    getRemainSeatsBatch(scheduleIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<Map<string, number>>;
     getRemainSeats(busScheduleId: Types.ObjectId, tenantId: Types.ObjectId): Promise<number>;
 }

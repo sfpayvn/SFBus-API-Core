@@ -10,6 +10,7 @@ exports.AutoJobTrackingModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const auto_job_tracking_service_1 = require("./auto-job-tracking.service");
+const auto_job_tracking_controller_1 = require("./auto-job-tracking.controller");
 const auto_job_tracking_schema_1 = require("./schema/auto-job-tracking.schema");
 let AutoJobTrackingModule = class AutoJobTrackingModule {
 };
@@ -24,6 +25,7 @@ exports.AutoJobTrackingModule = AutoJobTrackingModule = __decorate([
                 },
             ]),
         ],
+        controllers: [auto_job_tracking_controller_1.AutoJobTrackingController],
         providers: [auto_job_tracking_service_1.AutoJobTrackingService],
         exports: [auto_job_tracking_service_1.AutoJobTrackingService],
     })

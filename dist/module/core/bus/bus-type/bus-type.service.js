@@ -19,6 +19,7 @@ const mongoose_2 = require("mongoose");
 const bus_type_dto_1 = require("./dto/bus-type.dto");
 const bus_type_schema_1 = require("./schema/bus-type.schema");
 const class_transformer_1 = require("class-transformer");
+const utils_1 = require("../../../../utils/utils");
 let BusTypeService = class BusTypeService {
     constructor(busTypeModel) {
         this.busTypeModel = busTypeModel;
@@ -76,8 +77,9 @@ let BusTypeService = class BusTypeService {
         const pipeline = [];
         const matchConditions = [{ tenantId: { $in: tenantIds } }];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
-                $or: [{ name: { $regex: keyword, $options: 'i' } }],
+                $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
             });
         }
         let startDateValue = '';

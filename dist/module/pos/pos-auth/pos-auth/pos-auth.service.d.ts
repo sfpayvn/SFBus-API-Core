@@ -30,7 +30,7 @@ export declare class PosAuthService {
         };
     } | null>;
     forgotPassword(phoneNumber: string, tenantCode: string, redirectBaseUrl?: string): Promise<{
-        ok: string;
+        ok: boolean;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         ok: boolean;

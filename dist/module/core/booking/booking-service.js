@@ -620,6 +620,24 @@ let BookingService = class BookingService {
             return null;
         return bookingModels.map((m) => this.toBookingDto(m));
     }
+    async findBookingsByScheduleIds(busScheduleIds, tenantId) {
+        if (!busScheduleIds.length)
+            return [];
+        const bookingModels = await this.bookingModel
+            .find({
+            tenantId,
+            busScheduleId: { $in: busScheduleIds },
+            $or: [
+                { status: status_constants_1.BOOKING_STATUS.RESERVED },
+                { status: status_constants_1.BOOKING_STATUS.PAID },
+                { status: status_constants_1.BOOKING_STATUS.DEPOSITED },
+            ],
+        })
+            .select('busScheduleId bookingItems')
+            .lean()
+            .exec();
+        return bookingModels;
+    }
     async search(pageIdx, pageSize, keyword, sortBy, filters, tenantId) {
         const pipeline = await this.buildQuerySearchBookingPaging(pageIdx, pageSize, keyword, sortBy, filters, tenantId);
         const items = await this.bookingModel.aggregate(pipeline).exec();
@@ -642,13 +660,14 @@ let BookingService = class BookingService {
         const pipeline = [];
         const matchConditions = [{ tenantId }];
         if (keyword) {
+            const safeKeyword = (0, utils_1.sanitizeKeyword)(keyword);
             matchConditions.push({
                 $or: [
-                    { name: { $regex: keyword, $options: 'i' } },
-                    { bookingNumber: { $regex: keyword, $options: 'i' } },
-                    { 'userInfo.phoneNumber': { $regex: keyword, $options: 'i' } },
-                    { 'userInfo.name': { $regex: keyword, $options: 'i' } },
-                    { 'userInfo.email': { $regex: keyword, $options: 'i' } },
+                    { name: { $regex: safeKeyword, $options: 'i' } },
+                    { bookingNumber: { $regex: safeKeyword, $options: 'i' } },
+                    { 'userInfo.phoneNumber': { $regex: safeKeyword, $options: 'i' } },
+                    { 'userInfo.name': { $regex: safeKeyword, $options: 'i' } },
+                    { 'userInfo.email': { $regex: safeKeyword, $options: 'i' } },
                 ],
             });
         }
