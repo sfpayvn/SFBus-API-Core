@@ -26,7 +26,7 @@ import {
   getCurrentDate,
   parseTimeHmToMilliseconds,
 } from '@/utils/utils';
-import { bufferToObjectIdHex } from '@/utils/utils';
+import { bufferToObjectIdHex, sanitizeKeyword } from '@/utils/utils';
 import { customAlphabet } from 'nanoid';
 import { RequestUpdateSeatStatusDto } from '../bus-schedule-layout/dto/bus-schedule-layout.dto';
 import { BusServiceDto } from '../bus-service/dto/bus-service.dto';
@@ -522,8 +522,9 @@ export class BusScheduleService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 
@@ -655,8 +656,9 @@ export class BusScheduleService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }, { busScheduleNumber: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }, { busScheduleNumber: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 
@@ -762,8 +764,9 @@ export class BusScheduleService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 
@@ -893,7 +896,7 @@ export class BusScheduleService {
 
   /**
    * Bổ sung dữ liệu busDrivers và busServices cho tất cả schedules
-   * Lấy busDrivers song song và map busServices
+   * Batch queries: 3 queries total instead of N×3 queries (N+1 eliminated)
    */
   async enrichSchedules(schedules: any[], tenantId: Types.ObjectId): Promise<any[]> {
     // Cập nhật status cho tất cả schedules (batch update) - trả về schedules đã update
@@ -901,22 +904,26 @@ export class BusScheduleService {
 
     schedules = updatedSchedules;
 
-    // Lấy remainSeat song song
-    const remainSeats = await Promise.all(
-      schedules.map((schedule) => this.busScheduleLayoutService.getRemainSeats(schedule._id, tenantId)),
-    );
-    schedules.forEach((schedule, index) => {
-      schedule.remainSeat = remainSeats[index];
+    // Batch remainSeats: 3 queries for all schedules (layouts + bookings + seatTypes)
+    const scheduleIds = schedules.map((s) => s._id);
+    const remainSeatsMap = await this.busScheduleLayoutService.getRemainSeatsBatch(scheduleIds, tenantId);
+    schedules.forEach((schedule) => {
+      schedule.remainSeat = remainSeatsMap.get(schedule._id?.toString()) ?? 0;
     });
 
-    // Lấy busDrivers song song cho tất cả schedules
-    const busDriversList = await Promise.all(
-      schedules.map((schedule) => this.driverService.findUserDriverByIds(schedule.busDriverIds, tenantId)),
-    );
+    // Batch busDrivers: collect all unique driver IDs → 2 queries for all schedules
+    const allDriverIdStrings = [
+      ...new Set(schedules.flatMap((s) => (s.busDriverIds ?? []).map((id: any) => id?.toString()).filter(Boolean))),
+    ];
+    const allDriverIds = allDriverIdStrings.map((id) => new Types.ObjectId(id));
+    const allDrivers = allDriverIds.length > 0 ? (await this.driverService.findUserDriverByIds(allDriverIds, tenantId)) ?? [] : [];
+    const driverMap = new Map(allDrivers.map((d) => [d._id?.toString(), d]));
 
-    // Map thêm busDrivers và busServices
-    return schedules.map((schedule, index) => {
-      schedule.busDrivers = busDriversList[index];
+    // Map busDrivers and busServices back to each schedule
+    return schedules.map((schedule) => {
+      schedule.busDrivers = (schedule.busDriverIds ?? [])
+        .map((id: any) => driverMap.get(id?.toString()))
+        .filter(Boolean);
       schedule = this.mapBusTemplateServices(schedule);
       return schedule;
     });

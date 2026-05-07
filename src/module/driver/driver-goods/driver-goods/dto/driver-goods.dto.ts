@@ -1,5 +1,5 @@
 import { Exclude, Expose, Type } from 'class-transformer';
-import { IsString } from 'class-validator';
+import { IsString, MaxLength } from 'class-validator';
 import { IsOptional } from 'class-validator';
 import { IsInt } from 'class-validator';
 import { IsNotEmpty } from 'class-validator';
@@ -151,6 +151,7 @@ export class DriverSearchGoodsPagingQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

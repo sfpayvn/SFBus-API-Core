@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Exclude, Expose, Type } from 'class-transformer';
 import { DriverBusRouteDto } from '../../driver-bus-route/dto/driver-bus-route.dto';
 import { DriverBusSeatPrices } from '../../driver-bus-schedule/dto/driver-bus-schedule.dto';
@@ -78,6 +78,7 @@ export class DriverSearchBusScheduleTemplateQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

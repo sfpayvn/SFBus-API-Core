@@ -19,6 +19,7 @@ import { UpdateUserProfileDto, UpdatePasswordUserDto } from '../user/dto/update-
 import { UserDto, UserAddressDto, SearchUserQuerySortFilter, SearchUsersRes } from '../user/dto/user.dto';
 import { UserDocument } from '../user/schema/user.schema';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
+import { sanitizeKeyword } from '@/utils/utils';
 
 @Injectable()
 export class UserTenantService {
@@ -397,6 +398,25 @@ export class UserTenantService {
       matchStageIndex = 0;
     }
 
+    // ✅ FIX: Add $lookup to join with tenant collection BEFORE pagination
+    // This eliminates N+1 queries (1 aggregate instead of N service calls)
+    pipeline.push(
+      {
+        $lookup: {
+          from: 'tenants',
+          localField: 'tenantId',
+          foreignField: '_id',
+          as: 'tenant'
+        }
+      },
+      {
+        $unwind: {
+          path: '$tenant',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    );
+
     // Thực hiện tìm kiếm
     const usersModel = await this.userModel.aggregate(pipeline).exec();
 
@@ -404,15 +424,11 @@ export class UserTenantService {
     const matchConditions = pipeline[matchStageIndex].$match;
     const totalItem = await this.userModel.countDocuments(matchConditions);
 
-    let users = await Promise.all(
-      usersModel.map(async (user) => {
-        const tenant = await this.tenantService.findOne(user.tenantId);
-        if (tenant) {
-          user.tenant = tenant;
-        }
-        return plainToInstance(UserDto, user);
-      }),
-    );
+    // ✅ FIX: No more Promise.all with async service calls!
+    // Tenant data is already joined from aggregation pipeline
+    let users = usersModel.map((user) => {
+      return plainToInstance(UserDto, user);
+    });
     users = await this.mapUserAvatarUrl(users);
 
     return {
@@ -439,8 +455,9 @@ export class UserTenantService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 

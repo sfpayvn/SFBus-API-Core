@@ -33,6 +33,7 @@ import { SettingsModule } from './settings/settings.module';
 import { ReportModule } from './report/report.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { AutoJobTrackingModule } from './auto-job-tracking';
+import { AutoJobModule } from './auto-job/auto-job.module';
 import { WidgetBlocksModule } from './widget-blocks/widget-blocks.module';
 import { DriverModule } from './user/driver/driver.module';
 import { FeeTaxModule } from './fee-tax/fee-tax.module';
@@ -74,6 +75,7 @@ import { FeeTaxModule } from './fee-tax/fee-tax.module';
     ReportModule,
     TrackingModule,
     AutoJobTrackingModule,
+    AutoJobModule,
     WidgetBlocksModule,
     FeeTaxModule,
   ],
@@ -113,6 +115,7 @@ import { FeeTaxModule } from './fee-tax/fee-tax.module';
     ReportModule,
     TrackingModule,
     AutoJobTrackingModule,
+    AutoJobModule,
     WidgetBlocksModule,
     FeeTaxModule,
   ],

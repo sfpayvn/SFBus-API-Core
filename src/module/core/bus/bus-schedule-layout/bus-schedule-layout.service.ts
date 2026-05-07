@@ -232,6 +232,66 @@ export class BusScheduleLayoutService {
     }
   }
 
+  /**
+   * Batch version of getRemainSeats — fetches all layouts and bookings in 2 queries
+   * instead of N×(findOne + findBookingBySchedule) calls.
+   * Returns a Map of scheduleId → remainSeats count.
+   */
+  async getRemainSeatsBatch(scheduleIds: Types.ObjectId[], tenantId: Types.ObjectId): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (!scheduleIds.length) return result;
+
+    // 1 query: all layouts for all schedules
+    const layouts = await this.busScheduleLayoutModel
+      .find({ busScheduleId: { $in: scheduleIds }, tenantId })
+      .lean()
+      .exec();
+
+    if (!layouts.length) return result;
+
+    // 1 query: all active bookings for all schedules (only bookingItems.seat needed)
+    const allBookingsRaw = await this.bookingService.findBookingsByScheduleIds(scheduleIds, tenantId);
+
+    // Build bookedSeatIds per scheduleId
+    const bookedSeatsBySchedule = new Map<string, Set<string>>();
+    for (const booking of allBookingsRaw) {
+      const sid = booking.busScheduleId?.toString();
+      if (!sid) continue;
+      if (!bookedSeatsBySchedule.has(sid)) bookedSeatsBySchedule.set(sid, new Set());
+      for (const item of booking.bookingItems ?? []) {
+        const seatId = item?.seat?._id?.toString?.();
+        if (seatId) bookedSeatsBySchedule.get(sid)!.add(seatId);
+      }
+    }
+
+    // 1 query: seat types (shared across all schedules)
+    const seatTypes = await this.seatTypeService.findAll([tenantId, new Types.ObjectId(this.ROOT_TENANT_ID)]);
+    const envTypeIds = new Set<string>(
+      (seatTypes ?? []).filter((st) => !!st && st.isEnv).map((st) => st._id.toString()),
+    );
+
+    // Compute remainSeats per schedule
+    for (const layout of layouts) {
+      const scheduleIdStr = (layout as any).busScheduleId?.toString();
+      if (!scheduleIdStr) continue;
+      const bookedSeatIds = bookedSeatsBySchedule.get(scheduleIdStr) ?? new Set<string>();
+      let remainSeats = 0;
+      for (const seatLayout of (layout as any).seatLayouts ?? []) {
+        for (const seat of seatLayout.seats ?? []) {
+          const seatId = seat?._id?.toString?.();
+          const typeId = seat?.typeId?.toString?.();
+          const isBooked = seatId ? bookedSeatIds.has(seatId) : false;
+          const isEnv = typeId ? envTypeIds.has(typeId) : false;
+          if (!isBooked && !isEnv && seat.status === 'available') {
+            remainSeats++;
+          }
+        }
+      }
+      result.set(scheduleIdStr, remainSeats);
+    }
+    return result;
+  }
+
   async getRemainSeats(busScheduleId: Types.ObjectId, tenantId: Types.ObjectId): Promise<number> {
     const busScheduleLayoutModel = await this.busScheduleLayoutModel.findOne({ busScheduleId, tenantId }).lean().exec();
 
@@ -249,54 +309,35 @@ export class BusScheduleLayoutService {
       return 0;
     }
 
-    const updatePromises = await busScheduleLayout.seatLayouts.map(async (seatLayout: BusSeatLayoutTemplateDto) => {
-      // Kiểm tra các seat tồn tạis
-      const bookings = (await this.bookingService.findBookingBySchedule(busScheduleId, tenantId)) ?? [];
+    // Fetch bookings ONCE for this schedule (outside the seatLayouts loop)
+    const bookings = (await this.bookingService.findBookingBySchedule(busScheduleId, tenantId)) ?? [];
 
-      // 1) Tập hợp tất cả seatId đã được booking
-      const bookedSeatIds = new Set<string>();
-      for (const booking of bookings ?? []) {
-        for (const item of booking.bookingItems ?? []) {
-          const sid = item?.seat?._id;
-          if (sid != null) bookedSeatIds.add(sid.toString());
+    // Build bookedSeatIds set once
+    const bookedSeatIds = new Set<string>();
+    for (const booking of bookings) {
+      for (const item of booking.bookingItems ?? []) {
+        const sid = item?.seat?._id;
+        if (sid != null) bookedSeatIds.add(sid.toString());
+      }
+    }
+
+    // Build envTypeIds set once
+    const envTypeIds = new Set<string>(
+      (seatTypes ?? []).filter((st) => !!st && st.isEnv).map((st) => st._id.toString()),
+    );
+
+    for (const seatLayout of busScheduleLayout.seatLayouts ?? []) {
+      for (const seat of seatLayout.seats ?? []) {
+        const seatId = seat?._id?.toString?.();
+        const typeId = seat?.typeId?.toString?.();
+        const isBooked = seatId ? bookedSeatIds.has(seatId) : false;
+        const isEnv = typeId ? envTypeIds.has(typeId) : false;
+        if (!isBooked && !isEnv && seat.status === 'available') {
+          remainSeats++;
         }
       }
+    }
 
-      // 2) Tập hợp các typeId có isEnv = true (nếu muốn check theo type nhanh)
-      const envTypeIds = new Set<string>(
-        (seatTypes ?? []).filter((st) => !!st && st.isEnv).map((st) => st._id.toString()),
-      );
-
-      // 3) Duyệt seatLayouts 1 lần và cập nhật trạng thái ghế
-      busScheduleLayout.seatLayouts = (busScheduleLayout.seatLayouts ?? []).map(
-        (seatLayout: BusSeatLayoutTemplateDto) => {
-          seatLayout.seats = (seatLayout.seats ?? []).map((seat: SeatDto) => {
-            const seatId = seat?._id?.toString?.();
-            const typeId = seat?.typeId?.toString?.();
-
-            const isBooked = seatId ? bookedSeatIds.has(seatId) : false;
-            const isEnv = typeId ? envTypeIds.has(typeId) : false;
-
-            // nếu đã bị blocked trước thì giữ nguyên (nếu muốn), hoặc overwrite:
-            if (isBooked || isEnv) {
-              return { ...seat, status: 'blocked' };
-            }
-
-            // nếu muốn reset lại trạng thái khi không blocked, ví dụ 'available':
-            // return { ...seat, status: 'available' };
-
-            return seat; // giữ nguyên nếu không muốn thay đổi
-          });
-
-          return seatLayout;
-        },
-      );
-
-      remainSeats += seatLayout.seats.filter((seat) => seat.status === 'available').length;
-    });
-
-    // Chờ tất cả các cập nhật hoàn tất
-    await Promise.all(updatePromises);
     return remainSeats;
   }
 }

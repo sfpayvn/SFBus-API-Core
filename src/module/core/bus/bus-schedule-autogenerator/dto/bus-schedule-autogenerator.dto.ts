@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Exclude, Expose, Type } from 'class-transformer';
 
 export class SpecificTimeSlotDto {
@@ -78,6 +78,7 @@ export class SearchBusScheduleAutogeneratorQuery {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   keyword: string;
 
   @IsOptional()

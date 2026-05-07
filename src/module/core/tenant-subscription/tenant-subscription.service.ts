@@ -13,7 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { SeatTypeDto, SearchSeatTypeQuerySortFilter } from '../seat/seat-type/dto/seat-type.dto';
 import { DURATION_STATUS } from '@/common/constants/status.constants';
 import { SubscriptionService } from '../subscription/subscription.service';
-import { getFirstValue } from '@/utils/utils';
+import { getFirstValue, sanitizeKeyword } from '@/utils/utils';
 
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
@@ -154,6 +154,67 @@ export class TenantSubscriptionService {
       .exec();
   }
 
+  /**
+   * Lấy raw documents của tất cả subscriptions đang active (dùng nội bộ).
+   */
+  async findAllRawActiveSubscriptions(now: Date): Promise<Array<{ tenantId: Types.ObjectId; limitationSnapshot: any }>> {
+    return this.tenantSubModel
+      .find({
+        status: 'active',
+        startAt: { $lte: now },
+        endAt: { $gt: now },
+      })
+      .select('tenantId limitationSnapshot')
+      .lean()
+      .exec() as any;
+  }
+
+  /**
+   * Lấy danh sách tenantId có subscription active và không bị block module moduleKey.
+   * Dùng cho auto-schedule jobs chạy cho tất cả tenant.
+   */
+  async findAllActiveEligibleForModule(moduleKey: string): Promise<Types.ObjectId[]> {
+    const now = new Date();
+    const subs = await this.tenantSubModel
+      .find({
+        status: 'active',
+        startAt: { $lte: now },
+        endAt: { $gt: now },
+      })
+      .select('tenantId limitationSnapshot')
+      .lean()
+      .exec();
+
+    return subs
+      .filter((sub) => {
+        const modules: any[] = (sub as any).limitationSnapshot?.modules ?? [];
+        const mod = modules.find((m) => m.key === moduleKey);
+        if (!mod) return true; // không có rule → cho phép
+        const rule = mod.moduleRule;
+        if (!rule) return true; // không có moduleRule → cho phép
+        // bị block khi type === 'block' && quota === 0
+        return !(rule.type === 'block' && (rule.quota ?? 0) === 0);
+      })
+      .map((sub) => (sub as any).tenantId as Types.ObjectId);
+  }
+
+  /**
+   * Batch version: lấy active subscriptions cho nhiều tenants trong 1 query.
+   */
+  async findActiveByTenantIds(tenantIds: Types.ObjectId[], now: Date): Promise<Array<{ tenantId: any; subscriptionId: any }>> {
+    if (!tenantIds.length) return [];
+    return this.tenantSubModel
+      .find({
+        tenantId: { $in: tenantIds },
+        status: 'active',
+        startAt: { $lte: now },
+        endAt: { $gt: now },
+      })
+      .select('tenantId subscriptionId')
+      .lean()
+      .exec() as any;
+  }
+
   async findByTenantId(tenantId: Types.ObjectId): Promise<TenantSubscriptionDto | null> {
     const tenantSubModel = await this.tenantSubModel.findOne({ tenantId }).lean().exec();
     if (!tenantSubModel) return null;
@@ -219,8 +280,9 @@ export class TenantSubscriptionService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 

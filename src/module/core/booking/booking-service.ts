@@ -16,7 +16,7 @@ import { BusScheduleService } from '../bus/bus-schedule/bus-schedule.service';
 import { BusScheduleDocument } from '../bus/bus-schedule/schema/bus-schedule.schema';
 import { BusDocument } from '../bus/bus/schema/bus.schema';
 import { CounterService } from '../counter/counter-service';
-import { processFilterValue, getFirstValue, getCurrentDate, toObjectId } from '@/utils/utils';
+import { processFilterValue, getFirstValue, getCurrentDate, toObjectId, sanitizeKeyword } from '@/utils/utils';
 import { ROLE_CONSTANTS } from '@/common/constants/roles.constants';
 import e from 'express';
 
@@ -862,6 +862,31 @@ export class BookingService {
     return bookingModels.map((m) => this.toBookingDto(m));
   }
 
+  /**
+   * Batch fetch bookings for multiple schedules (used for batch remainSeats calculation).
+   * Only retrieves bookingItems.seat data — skips heavy populate to keep it fast.
+   */
+  async findBookingsByScheduleIds(
+    busScheduleIds: Types.ObjectId[],
+    tenantId: Types.ObjectId,
+  ): Promise<Array<{ busScheduleId: Types.ObjectId; bookingItems: Array<{ seat?: { _id?: any } }> }>> {
+    if (!busScheduleIds.length) return [];
+    const bookingModels = await this.bookingModel
+      .find({
+        tenantId,
+        busScheduleId: { $in: busScheduleIds },
+        $or: [
+          { status: BOOKING_STATUS.RESERVED },
+          { status: BOOKING_STATUS.PAID },
+          { status: BOOKING_STATUS.DEPOSITED },
+        ],
+      })
+      .select('busScheduleId bookingItems')
+      .lean()
+      .exec();
+    return bookingModels as any[];
+  }
+
   // -------------------------
   // SEARCH PAGING (scoped)
   // -------------------------
@@ -914,13 +939,14 @@ export class BookingService {
     const matchConditions: any[] = [{ tenantId }];
 
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
         $or: [
-          { name: { $regex: keyword, $options: 'i' } },
-          { bookingNumber: { $regex: keyword, $options: 'i' } },
-          { 'userInfo.phoneNumber': { $regex: keyword, $options: 'i' } },
-          { 'userInfo.name': { $regex: keyword, $options: 'i' } },
-          { 'userInfo.email': { $regex: keyword, $options: 'i' } },
+          { name: { $regex: safeKeyword, $options: 'i' } },
+          { bookingNumber: { $regex: safeKeyword, $options: 'i' } },
+          { 'userInfo.phoneNumber': { $regex: safeKeyword, $options: 'i' } },
+          { 'userInfo.name': { $regex: safeKeyword, $options: 'i' } },
+          { 'userInfo.email': { $regex: safeKeyword, $options: 'i' } },
         ],
       });
     }

@@ -11,6 +11,7 @@ import { TenantSubscriptionService } from '../tenant-subscription/tenant-subscri
 import { FileService } from '../file/file/file.service';
 import { UserService } from '../user/user/user.service';
 import { DEFAULT_TENANT_USER_ROLES } from '@/common/constants/roles.constants';
+import { sanitizeKeyword } from '@/utils/utils';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { RegisterSubscriptionDto } from '../tenant-subscription/dto/tenant-subscription.dto';
 import { SettingsService } from '../settings/settings.service';
@@ -66,7 +67,7 @@ export class TenantService {
           } as any,
           tenantId,
         );
-      } catch (userError) {
+      } catch (userError: any) {
         // Log user creation error but continue with tenant creation
         console.error(`Failed to create user for tenant: ${userError.message}`);
       }
@@ -128,7 +129,7 @@ export class TenantService {
       ) {
         try {
           await this.fileService.delete(oldTenant.logoId, updateTenantDto._id);
-        } catch (error) {
+        } catch (error: any) {
           // Log error but continue with update
           console.error(`Failed to delete old logo file: ${error.message}`);
         }
@@ -224,15 +225,18 @@ export class TenantService {
     // Đếm tổng số mục
     const totalItem = await this.tenantModel.countDocuments({});
 
+    // Batch fetch active subscriptions for all tenants in one query
+    const tenantIds = tenants.map((t) => t._id);
+    const now = new Date();
+    const activeSubscriptions = await this.tenantSubscriptionService.findActiveByTenantIds(tenantIds, now);
+    const subMap = new Map(activeSubscriptions.map((s: any) => [s.tenantId?.toString(), s.subscriptionId]));
+
     let result = plainToInstance(
       TenantDto,
-      await Promise.all(
-        tenants.map(async (tenant) => {
-          const subscription = await this.tenantSubscriptionService.getActive(tenant._id);
-          const subscriptionId = subscription ? subscription.subscriptionId : null;
-          return { ...tenant, subscriptionId };
-        }),
-      ),
+      tenants.map((tenant) => ({
+        ...tenant,
+        subscriptionId: subMap.get(tenant._id?.toString()) ?? null,
+      })),
     );
 
     return {
@@ -259,8 +263,9 @@ export class TenantService {
 
     // 1. Tìm theo keyword
     if (keyword) {
+      const safeKeyword = sanitizeKeyword(keyword);
       matchConditions.push({
-        $or: [{ name: { $regex: keyword, $options: 'i' } }],
+        $or: [{ name: { $regex: safeKeyword, $options: 'i' } }],
       });
     }
 
